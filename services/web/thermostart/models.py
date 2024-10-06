@@ -160,3 +160,15 @@ class Device(UserMixin, db.Model):
 
     def __repr__(self):
         return f"<Entry [{self.hardware_id}] {self.source}>"
+
+
+class DeviceMessage(db.Model):
+    __tablename__ = 'device_messages'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    device_hardware_id = db.Column(db.String, db.ForeignKey('device.hardware_id'), nullable=False)  # ForeignKey to Device model
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    message = db.Column(db.JSON, nullable=False)  # Store message as JSON
+
+    def __repr__(self):
+        return f"<DeviceMessage [{self.id}] from device_hardware_id {self.device_hardware_id} at {self.timestamp} with message '{self.message}'>"

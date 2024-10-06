@@ -6,6 +6,7 @@ services:
       context: ./services/web
       dockerfile: Dockerfile.prod
     command: gunicorn -t 600 -k eventlet -w 1 -b 0.0.0.0:3888 'thermostart:create_app()'
+    restart: always
     volumes:
       - db_data_prod:/home/app/data/
     ports:
