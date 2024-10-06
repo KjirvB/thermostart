@@ -163,12 +163,84 @@ class Device(UserMixin, db.Model):
 
 
 class DeviceMessage(db.Model):
-    __tablename__ = 'device_messages'
+    __tablename__ = "device_messages"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    device_hardware_id = db.Column(db.String, db.ForeignKey('device.hardware_id'), nullable=False)  # ForeignKey to Device model
+    device_hardware_id = db.Column(
+        db.String, db.ForeignKey("device.hardware_id"), nullable=False
+    )  # ForeignKey to Device model
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     message = db.Column(db.JSON, nullable=False)  # Store message as JSON
 
     def __repr__(self):
         return f"<DeviceMessage [{self.id}] from device_hardware_id {self.device_hardware_id} at {self.timestamp} with message '{self.message}'>"
+class ParsedMessage(db.Model):
+    __tablename__ = "parsed_messages"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    device_hardware_id = db.Column(
+        db.String, db.ForeignKey("device.hardware_id"), nullable=False
+    )  # ForeignKey to Device model
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    u = db.Column(db.String(50))
+    p = db.Column(db.String(50), nullable=True)
+    cv = db.Column(db.Integer)
+    hw = db.Column(db.Integer)
+    fw = db.Column(db.String(50))
+    sv = db.Column(db.Integer)
+    src = db.Column(db.Integer)
+    pv = db.Column(db.Integer)
+    hv = db.Column(db.Integer)
+    th = db.Column(db.Integer)
+    tc = db.Column(db.Integer)
+    ot0 = db.Column(db.String(50))
+    ot1 = db.Column(db.String(50))
+    ot3 = db.Column(db.String(50))
+    ot17 = db.Column(db.String(50))
+    ot18 = db.Column(db.String(50))
+    ot19 = db.Column(db.String(50))
+    ot25 = db.Column(db.String(50))
+    ot26 = db.Column(db.String(50))
+    ot27 = db.Column(db.String(50))
+    ot28 = db.Column(db.String(50))
+    ot34 = db.Column(db.String(50))
+    ot56 = db.Column(db.String(50))
+    ot125 = db.Column(db.String(50))
+    parsed_ot0 = db.Column(db.JSON, nullable=True)
+    parsed_ot1 = db.Column(db.Float, nullable=True)
+    parsed_ot3 = db.Column(db.JSON, nullable=True)
+    parsed_ot17 = db.Column(db.Float, nullable=True)
+    parsed_ot18 = db.Column(db.Float, nullable=True)
+    parsed_ot19 = db.Column(db.Float, nullable=True)
+    parsed_ot25 = db.Column(db.Float, nullable=True)
+    parsed_ot26 = db.Column(db.Float, nullable=True)
+    parsed_ot27 = db.Column(db.Float, nullable=True)
+    parsed_ot28 = db.Column(db.Float, nullable=True)
+    parsed_ot34 = db.Column(db.Float, nullable=True)
+    parsed_ot56 = db.Column(db.Float, nullable=True)
+    parsed_ot125 = db.Column(db.Float, nullable=True)
+    otime = db.Column(db.Integer)
+    kp = db.Column(db.Float)
+    ti = db.Column(db.Float)
+    td = db.Column(db.Float)
+    frc = db.Column(db.Float)
+    out = db.Column(db.Float)
+    orx = db.Column(db.Integer)
+    ot = db.Column(db.Integer)
+    pd = db.Column(db.Float)
+    dd = db.Column(db.Float)
+    oo = db.Column(db.Integer)
+    ta = db.Column(db.Integer)
+    dim = db.Column(db.Integer)
+    sl = db.Column(db.Integer)
+    dv = db.Column(db.Integer)
+    csv = db.Column(db.Integer)
+    lrn = db.Column(db.Float)
+    to = db.Column(db.Integer)
+    ts = db.Column(db.Integer)
+    sd = db.Column(db.Integer)
+    hlp = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<ParsedMessage [{self.id}] from device_hardware_id {self.device_hardware_id} at {self.timestamp}>"
+

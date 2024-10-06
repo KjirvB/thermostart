@@ -10,7 +10,7 @@ from flask import Blueprint, Response, jsonify, make_response, request
 from flask_socketio import emit
 
 from thermostart import db
-from thermostart.models import Device, DeviceMessage, Location
+from thermostart.models import Device, DeviceMessage, Location, ParsedMessage
 
 from .utils import (
     Source,
@@ -18,6 +18,7 @@ from .utils import (
     encrypt_response,
     firmware_upgrade_needed,
     get_firmware,
+    parse_and_store,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -159,7 +160,9 @@ def api():
         return Response(response="incorrect request", status=400)
 
     new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
-    db.session.add(new_message)
+    new_parsed_message = parse_and_store(device_hardware_id=hardware_id, raw_message=tsreq,)
+
+    db.session.add_all(new_message, new_parsed_message)
     db.session.commit()
 
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})

@@ -1,8 +1,11 @@
 import os
 
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Specify the path to your .env.dev file
+dotenv_path = Path(r'C:\Users\RijkVanBraak\Prive\thermostart\.env.dev')
+load_dotenv(dotenv_path)
 
 
 class Config:
