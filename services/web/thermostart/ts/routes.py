@@ -10,7 +10,7 @@ from flask import Blueprint, Response, jsonify, make_response, request
 from flask_socketio import emit
 
 from thermostart import db
-from thermostart.models import Device, Location
+from thermostart.models import Device, DeviceMessage, Location
 
 from .utils import (
     Source,
@@ -157,6 +157,10 @@ def api():
             arg[1],
         )
         return Response(response="incorrect request", status=400)
+
+    new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
+    db.session.add(new_message)
+    db.session.commit()
 
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})
 
