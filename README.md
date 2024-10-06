@@ -1,3 +1,7 @@
+>[!CAUTION]
+># CURRENT BRANCH STATUS: BROKEN. DO NOT USE.
+># TODO: WRITE MIGRATION SCRIPT AND TEST.
+
 # Thermostart - Cloudless Thermosmart
 Make your (currently) useless Thermosmart device cloud independent and get
 your old scheduling functionality back.
