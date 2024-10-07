@@ -11,6 +11,7 @@ from flask_socketio import emit
 
 from thermostart import db
 from thermostart.models import Device, DeviceMessage, Location, ParsedMessage
+from thermostart.config import Config
 
 from .utils import (
     Source,
@@ -159,13 +160,21 @@ def api():
         )
         return Response(response="incorrect request", status=400)
 
-    new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
-    new_parsed_message = parse_and_store(device_hardware_id=hardware_id, raw_message=tsreq,)
-
-    db.session.add_all(new_message, new_parsed_message)
-    db.session.commit()
-
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})
+
+    if Config.PARSE_AND_STORE_MESSAGES:
+        new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
+        new_parsed_message = parse_and_store(device_hardware_id=hardware_id, raw_message=tsreq,)
+
+        db.session.add_all(new_message, new_parsed_message)
+        db.session.commit()
+    if Config.MESSAGE_RETENTION_DAYS > 0:
+        # Calculate the cutoff date
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=Config.MESSAGE_RETENTION_DAYS)
+        # Delete old data in a single query
+        num_deleted = db.session.query(ParsedMessage).filter(ParsedMessage.timestamp < cutoff_date).delete()
+        db.session.commit()
+        _LOGGER.info("%s messages deleted that were older than the cutoff date: %s", num_deleted, cutoff_date)
 
     xml = "<ITHERMOSTAT>"
 
