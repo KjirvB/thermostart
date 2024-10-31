@@ -174,6 +174,8 @@ class DeviceMessage(db.Model):
 
     def __repr__(self):
         return f"<DeviceMessage [{self.id}] from device_hardware_id {self.device_hardware_id} at {self.timestamp} with message '{self.message}'>"
+
+
 class ParsedMessage(db.Model):
     __tablename__ = "parsed_messages"
 
@@ -243,4 +245,3 @@ class ParsedMessage(db.Model):
 
     def __repr__(self):
         return f"<ParsedMessage [{self.id}] from device_hardware_id {self.device_hardware_id} at {self.timestamp}>"
-

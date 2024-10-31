@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 # Specify the path to your .env.dev file
-dotenv_path = (Path("../../.."))/".env.dev"
+dotenv_path = (Path("../../..")) / ".env.dev"
 load_dotenv(dotenv_path)
 
 
@@ -23,6 +23,8 @@ class Config:
     AUTOLOGIN_USERNAME = os.getenv("AUTOLOGIN_USERNAME", "")
     AUTOLOGIN_PASSWORD = os.getenv("AUTOLOGIN_PASSWORD", "")
 
-    #Variables to enable store parsed messages and set the retention time in days. 0 for infinite
-    PARSE_AND_STORE_MESSAGES = os.getenv("PARSE_AND_STORE_MESSAGES", "false").lower() == "true"
-    MESSAGE_RETENTION_DAYS = int(os.getenv("MESSAGE_RETENTION_DAYS",0))
+    # Variables to enable store parsed messages and set the retention time in days. 0 for infinite
+    PARSE_AND_STORE_MESSAGES = (
+        os.getenv("PARSE_AND_STORE_MESSAGES", "false").lower() == "true"
+    )
+    MESSAGE_RETENTION_DAYS = int(os.getenv("MESSAGE_RETENTION_DAYS", 0))

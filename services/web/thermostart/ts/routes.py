@@ -163,18 +163,38 @@ def api():
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})
 
     if Config.PARSE_AND_STORE_MESSAGES:
-        new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
-        new_parsed_message = parse_and_store(device_hardware_id=hardware_id, raw_message=tsreq,)
 
-        db.session.add_all(new_message, new_parsed_message)
+        try:
+            new_parsed_message = parse_and_store(
+                device_hardware_id=hardware_id,
+                raw_message=tsreq,
+            )
+            db.session.add(new_parsed_message)
+        except:
+            _LOGGER.warn(
+                "Could not write parsed message, falling back to raw storing",
+            )
+            new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
+            db.session.add(new_message)
+
         db.session.commit()
     if Config.MESSAGE_RETENTION_DAYS > 0:
         # Calculate the cutoff date
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=Config.MESSAGE_RETENTION_DAYS)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(
+            days=Config.MESSAGE_RETENTION_DAYS
+        )
         # Delete old data in a single query
-        num_deleted = db.session.query(ParsedMessage).filter(ParsedMessage.timestamp < cutoff_date).delete()
+        num_deleted = (
+            db.session.query(ParsedMessage)
+            .filter(ParsedMessage.timestamp < cutoff_date)
+            .delete()
+        )
         db.session.commit()
-        _LOGGER.info("%s messages deleted that were older than the cutoff date: %s", num_deleted, cutoff_date)
+        _LOGGER.info(
+            "%s messages deleted that were older than the cutoff date: %s",
+            num_deleted,
+            cutoff_date,
+        )
 
     xml = "<ITHERMOSTAT>"
 
