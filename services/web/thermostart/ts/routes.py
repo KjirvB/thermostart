@@ -429,6 +429,7 @@ def api():
             and int(tsreq["csv"][0]) != device.target_temperature
         ):
             device.source = Source.MANUAL.value
+            device.target_temperature = int(tsreq["csv"][0])
             db.session.commit()
             emit(
                 "target_temperature",
@@ -460,6 +461,7 @@ def api():
             # communicate new state to ui
             emit("source", {"source": tssrc}, namespace="/", to=hardware_id)
         if int(tsreq["csv"][0]) != device.target_temperature:
+            device.target_temperature = int(tsreq["csv"][0])
             emit(
                 "target_temperature",
                 {"target_temperature": int(tsreq["csv"][0])},
