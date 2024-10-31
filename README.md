@@ -1,6 +1,6 @@
 >[!CAUTION]
-># CURRENT BRANCH STATUS: BROKEN. DO NOT USE.
-># TODO: WRITE MIGRATION SCRIPT AND TEST.
+># CURRENT BRANCH STATUS: Might work. DO NOT USE IN PROD.
+># TODO: CONSOLIDATE MIGRATION SCRIPTS.
 
 # Thermostart - Cloudless Thermosmart
 Make your (currently) useless Thermosmart device cloud independent and get
