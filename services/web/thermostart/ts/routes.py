@@ -458,6 +458,15 @@ def api():
 
             # communicate new state to ui
             emit("source", {"source": tssrc}, namespace="/", to=hardware_id)
+        if (
+                int(tsreq["csv"][0]) != device.target_temperature
+        ):
+            emit(
+                "target_temperature",
+                {"target_temperature": int(tsreq["csv"][0])},
+                namespace="/",
+                to=hardware_id,
+            )
 
     updatetime = False
     if "ts" in tsreq:
