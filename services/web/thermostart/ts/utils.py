@@ -614,56 +614,58 @@ def interpret_slave_config(hex_value):
     return {"slave_config": slave_config_meaning, "slave_member_id": slave_member_id}
 
 
-def parse_and_store(device_hardware_id, raw_message):
-    parsed_message = ParsedMessage(
-        device_hardware_id=device_hardware_id,
-        u=raw_message.get("u", [None])[0],
-        p=raw_message.get("p", [None])[0],
-        cv=int(raw_message.get("cv", [0])[0]),
-        hw=int(raw_message.get("hw", [0])[0]),
-        fw=raw_message.get("fw", [None])[0],
-        sv=int(raw_message.get("sv", [0])[0]),
-        src=int(raw_message.get("src", [0])[0]),
-        pv=int(raw_message.get("pv", [0])[0]),
-        hv=int(raw_message.get("hv", [0])[0]),
-        th=int(raw_message.get("th", [0])[0]),
-        tc=int(raw_message.get("tc", [0])[0]),
-        ot0=raw_message.get("ot0", [None])[0],
-        ot1=raw_message.get("ot1", [None])[0],
-        ot3=raw_message.get("ot3", [None])[0],
-        ot17=raw_message.get("ot17", [None])[0],
-        ot18=raw_message.get("ot18", [None])[0],
-        ot19=raw_message.get("ot19", [None])[0],
-        ot25=raw_message.get("ot25", [None])[0],
-        ot26=raw_message.get("ot26", [None])[0],
-        ot27=raw_message.get("ot27", [None])[0],
-        ot28=raw_message.get("ot28", [None])[0],
-        ot34=raw_message.get("ot34", [None])[0],
-        ot56=raw_message.get("ot56", [None])[0],
-        ot125=raw_message.get("ot125", [None])[0],
-        otime=int(raw_message.get("otime", [0])[0]),
-        kp=float(raw_message.get("kp", [0.0])[0]),
-        ti=float(raw_message.get("ti", [0.0])[0]),
-        td=float(raw_message.get("td", [0.0])[0]),
-        frc=float(raw_message.get("frc", [0])[0]),
-        out=float(raw_message.get("out", [0.0])[0]),
-        orx=int(raw_message.get("orx", [0])[0]),
-        ot=int(raw_message.get("ot", [0])[0]),
-        pd=float(raw_message.get("pd", [0.0])[0]),
-        dd=float(raw_message.get("dd", [0.0])[0]),
-        oo=int(raw_message.get("oo", [0])[0]),
-        ta=int(raw_message.get("ta", [0])[0]),
-        dim=int(raw_message.get("dim", [0])[0]),
-        sl=int(raw_message.get("sl", [0])[0]),
-        dv=int(raw_message.get("dv", [0])[0]),
-        csv=int(raw_message.get("csv", [0])[0]),
-        lrn=float(raw_message.get("lrn", [0])[0]),
-        to=int(raw_message.get("to", [0])[0]),
-        ts=int(raw_message.get("ts", [0])[0]),
-        sd=int(raw_message.get("sd", [0])[0]),
-        hlp=raw_message.get("hlp", [None])[0],
-    )
+def parse_message(device_hardware_id, raw_message):
+    # Create a dictionary to store parsed message data
+    parsed_data = {
+        "device_hardware_id": device_hardware_id,
+        "u": raw_message.get("u", [None])[0],
+        "p": raw_message.get("p", [None])[0],
+        "cv": int(raw_message.get("cv", [0])[0]),
+        "hw": int(raw_message.get("hw", [0])[0]),
+        "fw": raw_message.get("fw", [None])[0],
+        "sv": int(raw_message.get("sv", [0])[0]),
+        "src": int(raw_message.get("src", [0])[0]),
+        "pv": int(raw_message.get("pv", [0])[0]),
+        "hv": int(raw_message.get("hv", [0])[0]),
+        "th": int(raw_message.get("th", [0])[0]),
+        "tc": int(raw_message.get("tc", [0])[0]),
+        "ot0": raw_message.get("ot0", [None])[0],
+        "ot1": raw_message.get("ot1", [None])[0],
+        "ot3": raw_message.get("ot3", [None])[0],
+        "ot17": raw_message.get("ot17", [None])[0],
+        "ot18": raw_message.get("ot18", [None])[0],
+        "ot19": raw_message.get("ot19", [None])[0],
+        "ot25": raw_message.get("ot25", [None])[0],
+        "ot26": raw_message.get("ot26", [None])[0],
+        "ot27": raw_message.get("ot27", [None])[0],
+        "ot28": raw_message.get("ot28", [None])[0],
+        "ot34": raw_message.get("ot34", [None])[0],
+        "ot56": raw_message.get("ot56", [None])[0],
+        "ot125": raw_message.get("ot125", [None])[0],
+        "otime": int(raw_message.get("otime", [0])[0]),
+        "kp": float(raw_message.get("kp", [0.0])[0]),
+        "ti": float(raw_message.get("ti", [0.0])[0]),
+        "td": float(raw_message.get("td", [0.0])[0]),
+        "frc": float(raw_message.get("frc", [0])[0]),
+        "out": float(raw_message.get("out", [0.0])[0]),
+        "orx": int(raw_message.get("orx", [0])[0]),
+        "ot": int(raw_message.get("ot", [0])[0]),
+        "pd": float(raw_message.get("pd", [0.0])[0]),
+        "dd": float(raw_message.get("dd", [0.0])[0]),
+        "oo": int(raw_message.get("oo", [0])[0]),
+        "ta": int(raw_message.get("ta", [0])[0]),
+        "dim": int(raw_message.get("dim", [0])[0]),
+        "sl": int(raw_message.get("sl", [0])[0]),
+        "dv": int(raw_message.get("dv", [0])[0]),
+        "csv": int(raw_message.get("csv", [0])[0]),
+        "lrn": float(raw_message.get("lrn", [0])[0]),
+        "to": int(raw_message.get("to", [0])[0]),
+        "ts": int(raw_message.get("ts", [0])[0]),
+        "sd": int(raw_message.get("sd", [0])[0]),
+        "hlp": raw_message.get("hlp", [None])[0],
+    }
 
+    # Define data types for specific OpenTherm values
     data_types = {
         "ot0": "flags",  # ID 0: Master status flags / Slave status flags
         "ot1": "f8.8",  # ID 1: CH water temperature control setpoint (°C)
@@ -680,31 +682,15 @@ def parse_and_store(device_hardware_id, raw_message):
         "ot125": "f8.8",  # ID 125: Implemented version of OpenTherm in the slave
     }
 
-    # Parse OpenTherm values and store the parsed values
-    for key in [
-        "ot0",
-        "ot1",
-        "ot3",
-        "ot17",
-        "ot18",
-        "ot19",
-        "ot25",
-        "ot26",
-        "ot27",
-        "ot28",
-        "ot34",
-        "ot56",
-        "ot125",
-    ]:
+    # Parse OpenTherm values and store in parsed_data dictionary
+    for key in data_types.keys():
         value = raw_message.get(key, [None])[0]
         if value and value != "0xdead":
-            data_type = data_types.get(key)
-            if data_type == "f8.8":
-                parsed_value = parse_f8_8(value)
-            elif data_type == "flags":
-                parsed_value = interpret_status(value)
-            elif data_type == "flags.u8":
-                parsed_value = interpret_slave_config(value)
-            else:
-                parsed_value = None  # Placeholder for other parsing logic
-            setattr(parsed_message, f"parsed_{key}", parsed_value)
+            if data_types[key] == "f8.8":
+                parsed_data[f"parsed_{key}"] = parse_f8_8(value)
+            elif data_types[key] == "flags":
+                parsed_data[f"parsed_{key}"] = interpret_status(value)
+            elif data_types[key] == "flags.u8":
+                parsed_data[f"parsed_{key}"] = interpret_slave_config(value)
+
+    return parsed_data

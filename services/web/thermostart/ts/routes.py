@@ -19,7 +19,7 @@ from .utils import (
     encrypt_response,
     firmware_upgrade_needed,
     get_firmware,
-    parse_and_store,
+    parse_message,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -165,14 +165,15 @@ def api():
     if Config.PARSE_AND_STORE_MESSAGES:
 
         try:
-            new_parsed_message = parse_and_store(
-                device_hardware_id=hardware_id,
-                raw_message=tsreq,
+            parsed_data = parse_message(
+                device_hardware_id=hardware_id, raw_message=tsreq
             )
+            new_parsed_message = ParsedMessage(**parsed_data)
             db.session.add(new_parsed_message)
-        except:
+
+        except Exception as e:
             _LOGGER.warn(
-                "Could not write parsed message, falling back to raw storing",
+                "Could not write parsed message, falling back to raw storing: %s", e
             )
             new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
             db.session.add(new_message)
