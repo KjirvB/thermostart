@@ -29,6 +29,9 @@ docker-compose down
 ```
 To use the application visit http://localhost:3888 in your browser.
 
+## OpenTherm logging
+Each device can store OpenTherm data. When a device is created the initial values are taken from the environment variables `PARSE_AND_STORE_MESSAGES` and `MESSAGE_RETENTION_DAYS`. You can change these settings from the web interface.
+
 #### Additional useful commands
 ```
 # RUN in DEBUG mode

@@ -162,7 +162,7 @@ def api():
 
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})
 
-    if Config.PARSE_AND_STORE_MESSAGES:
+    if device.log_opentherm:
 
         try:
             parsed_data = parse_message(
@@ -179,10 +179,10 @@ def api():
             db.session.add(new_message)
 
         db.session.commit()
-    if Config.MESSAGE_RETENTION_DAYS > 0:
+    if device.log_retention_days > 0:
         # Calculate the cutoff date
         cutoff_date = datetime.now(timezone.utc) - timedelta(
-            days=Config.MESSAGE_RETENTION_DAYS
+            days=device.log_retention_days
         )
         # Delete old data in a single query
         num_deleted = (

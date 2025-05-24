@@ -24,6 +24,8 @@ def on_store_thermostat(req):
     device.port = req["port"]
     device.source = req["source"]
     device.target_temperature = req["target_temperature"]
+    device.log_opentherm = req.get("log_opentherm", device.log_opentherm)
+    device.log_retention_days = req.get("log_retention_days", device.log_retention_days)
     device.ui_synced = req["ui_synced"]
     device.ui_source = req["ui_source"]
     device.cal_synced = False

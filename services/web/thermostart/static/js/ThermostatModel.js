@@ -198,7 +198,9 @@ Backbone.sync = function(method, model, options) {
                 locale: model.get('locale'),
                 host: model.get('host'),
                 port: model.get('port'),
-                dhw_programs: model.get('dhw_programs')
+                dhw_programs: model.get('dhw_programs'),
+                log_opentherm: model.get('log_opentherm'),
+                log_retention_days: model.get('log_retention_days')
             };
 
         window.broker.emit('store-thermostat', dataToSend);
