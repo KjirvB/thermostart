@@ -2,6 +2,7 @@
 import calendar
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
@@ -24,7 +25,7 @@ from .utils import (
 
 _LOGGER = logging.getLogger(__name__)
 ts = Blueprint("ts", __name__)
-TOMORROW_APIKEY = ""
+TOMORROW_APIKEY = os.getenv("TOMORROW_APIKEY", "")
 
 
 @ts.route("/fw")
