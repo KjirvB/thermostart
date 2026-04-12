@@ -3,6 +3,7 @@ version: '3.8'
 services:
   web:
     build: ./services/web
+    image: thermostart-main-web_dev
     command: python manage.py run -p 3888 -h 0.0.0.0
     volumes:
       - ./services/web/:/usr/src/app/
