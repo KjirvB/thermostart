@@ -1,6 +1,8 @@
+
 import calendar
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs
@@ -11,7 +13,6 @@ from flask_socketio import emit
 
 from thermostart import db
 from thermostart.models import Device, DeviceMessage, Location, ParsedMessage
-from thermostart.config import Config
 
 from .utils import (
     Source,
@@ -24,26 +25,20 @@ from .utils import (
 
 _LOGGER = logging.getLogger(__name__)
 ts = Blueprint("ts", __name__)
-
-# tomorrow.io (weather) api key
-TOMORROW_APIKEY = "gFUNhMZ2o4VotYhmcLrul3WYy7I2X9rN"
+TOMORROW_APIKEY = os.getenv("TOMORROW_APIKEY", "")
 
 
-# WARNING: not to be used, needs reversing, web firmware is not working
 @ts.route("/fw")
 @ts.route("/fw/hcu")
 def firmware_update():
-    arg = str(next(iter(request.args)))
-    arg = arg.split("_")
+    arg = str(next(iter(request.args))).split("_")
     hardware_id = arg[1]
-
     _LOGGER.info(
         "Got firmare request from %s with hardware id %s and request %s..",
         request.remote_addr,
         arg[1],
         arg[2][:20],
     )
-
     device = Device.query.get(hardware_id)
     if device is None:
         _LOGGER.warn(
@@ -52,10 +47,8 @@ def firmware_update():
             arg[1],
         )
         return Response(response="no activated device", status=400)
-
     try:
-        tsreq = decrypt_request(arg[2], device.password)
-        tsreq = parse_qs(tsreq)
+        tsreq = parse_qs(decrypt_request(arg[2], device.password))
     except Exception:
         _LOGGER.warn(
             "Request from device with IP %s and hardware id %s cannot be decoded.",
@@ -63,24 +56,17 @@ def firmware_update():
             arg[1],
         )
         return Response(response="incorrect request", status=400)
-
-    # validate decryption and url decoding
     if tsreq["p"][0] != device.password:
         return Response(response="password mismatch", status=400)
-
     hw = int(tsreq["hw"][0])
-
     _LOGGER.info(
         "Sending patched firmware to %s with hardware id %s, revision %d",
         request.remote_addr,
         arg[1],
         hw,
     )
-
-    patch = {"hostname": device.host, "port": device.port, "replace_yourowl.com": True}
-    data = get_firmware(hw, patch)
+    data = get_firmware(hw, {"hostname": device.host, "port": device.port, "replace_yourowl.com": True})
     data = encrypt_response(data, device.password)
-
     response = make_response(data)
     response.headers.set("Content-Type", "text/plain")
     return response
@@ -88,58 +74,14 @@ def firmware_update():
 
 @ts.route("/api")
 def api():
-    """
-    <CAL> -- Note that when returning a calendar the SPI Flash will wipe and rewrite, this causes wear on the flash device. Use this cautiously!
-    vXXXX -- version (16bit calendar version)
-    sDHHMMTTTW -- standard record: day, hour, minute, temperature, DHW (all in base10 ascii)
-    xBBBBBBBBEEEEEEEETTTWX -- exception record: Begin of unix timestamp in UTC, Begin of unix timestamp in UTC, temperature (base10), DHW (base10), unused character
-    bXXXY -- we don't use this, I think it has something to do with CAL time not being initialised and reverting to manual?
-    </CAL> --
-    <SVSET></SVSET> -- 50-250 # set temperature
-    <BVSET></BVSET> -- 500-1000 # set outside temperature
-    <PVSET></PVSET> -- floating point # sets measured temperature?
-    <WEER/> -- - # unused markup tag
-    <RMSG/> -- - # unused markup tag
-    <TZ>+120</TZ> -- # Contains the (signed) time zone offset in minutes.
-    <FW>1</FW> -- 0/1 # FW update
-    <TA></TA> -- -25-25  # temperature adjustment/calibration
-    <DIM></DIM> -- 0-100 # display dimming
-    <SLS></SLS> -- 0-2 # status led setting:
-                        0 = Status LED is off.
-                        1 = Status LED displays only errors.
-                        2 = Status LED glows on boiler activity, when new temperature is set and flashes to indicate errors (Default).
-    <SD></SD> -- 0/1 # display function temperature or clock
-    <PID>
-    <KP>20.0</KP> -- The proportional term (Kp)
-    <TI>600.0</TI> -- the integral term (Ti)
-    <TD>-1.00</TD> -- differential term (Td)
-    <FORCE></FORCE> -- <99 # ? manual temperature override?
-    </PID>
-    <LRN>
-    <US></US> -- floating point # ?
-    </LRN>
-    <INIT>
-    <SV></SV> -- -50-250 # ?
-    <DHW>1</DHW> -- 0/1 # Domestic HOT Water on/off
-    <SRC></SRC> -- 0-5 # CRASH: 0, MANUAL: 1, SERVER: 2, STD_WEEK: 3, EXCEPTION: 4, PAUSE: 5
-    <LOCALE>nl-NL</LOCALE> -- de-DE, fr-FR, fr-BE, nl-NL, nl-BE, en-GB
-    </INIT>
-    <PAUSE>0</PAUSE> -- 0 or 1 # set home/away, Note this cannot be used in combination with init src
-    <SRV></SRV> -- 1-255? # 1 will disable server communication?
-    <TH></TH> -- 0-10 # The throttle factor property specifies the value of the server polling delay. A factor of 1 translates to delays of 10, 15, 20, 25, etc. seconds. A factor of 0 disables the throttling and defaults to 5 seconds.
-    <TS></TS> -- 0 # Epoch time (GMT) in seconds
-    """
-    arg = str(next(iter(request.args)))
-    arg = arg.split("_")
+    arg = str(next(iter(request.args))).split("_")
     hardware_id = arg[1]
-
     _LOGGER.info(
         "Got api request from %s with hardware id %s and request %s..",
         request.remote_addr,
         arg[1],
         arg[2][:20],
     )
-
     device = Device.query.get(hardware_id)
     if device is None:
         _LOGGER.warn(
@@ -148,10 +90,8 @@ def api():
             arg[1],
         )
         return Response(response="no activated device", status=400)
-
     try:
-        tsreq = decrypt_request(arg[2], device.password)
-        tsreq = parse_qs(tsreq)
+        tsreq = parse_qs(decrypt_request(arg[2], device.password))
     except Exception:
         _LOGGER.warn(
             "Request from device with IP %s and hardware id %s cannot be decoded.",
@@ -162,50 +102,44 @@ def api():
 
     _LOGGER.info("Request %s:%s - %s", request.remote_addr, arg[1], tsreq | {"p": None})
 
-    if Config.PARSE_AND_STORE_MESSAGES:
-
+    if device.log_opentherm:
         try:
-            parsed_data = parse_message(
-                device_hardware_id=hardware_id, raw_message=tsreq
-            )
-            new_parsed_message = ParsedMessage(**parsed_data)
-            db.session.add(new_parsed_message)
-
+            parsed_data = parse_message(device_hardware_id=hardware_id, raw_message=tsreq)
+            db.session.add(ParsedMessage(**parsed_data))
         except Exception as e:
-            _LOGGER.warn(
-                "Could not write parsed message, falling back to raw storing: %s", e
-            )
-            new_message = DeviceMessage(device_hardware_id=hardware_id, message=tsreq)
-            db.session.add(new_message)
-
+            _LOGGER.warn("Could not write parsed message, falling back to raw storing: %s", e)
+            db.session.add(DeviceMessage(device_hardware_id=hardware_id, message=tsreq))
         db.session.commit()
-    if Config.MESSAGE_RETENTION_DAYS > 0:
-        # Calculate the cutoff date
-        cutoff_date = datetime.now(timezone.utc) - timedelta(
-            days=Config.MESSAGE_RETENTION_DAYS
-        )
-        # Delete old data in a single query
-        num_deleted = (
+
+    if device.log_retention_days > 0:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=device.log_retention_days)
+        num_deleted_parsed = (
             db.session.query(ParsedMessage)
+            .filter(ParsedMessage.device_hardware_id == hardware_id)
             .filter(ParsedMessage.timestamp < cutoff_date)
+            .delete()
+        )
+        num_deleted_raw = (
+            db.session.query(DeviceMessage)
+            .filter(DeviceMessage.device_hardware_id == hardware_id)
+            .filter(DeviceMessage.timestamp < cutoff_date)
             .delete()
         )
         db.session.commit()
         _LOGGER.info(
-            "%s messages deleted that were older than the cutoff date: %s",
-            num_deleted,
+            "%s parsed messages and %s raw messages deleted for device %s older than cutoff date: %s",
+            num_deleted_parsed,
+            num_deleted_raw,
+            hardware_id,
             cutoff_date,
         )
 
     xml = "<ITHERMOSTAT>"
-
     if device.cal_synced is False:
         xml += "<CAL>"
-
         std_week = ""
         for block in device.standard_week:
-            std_week = std_week + "s{:01d}{:02d}{:02d}{:03d}{:01d}".format(
-                # Monday-Sunday (1-7)
+            std_week += "s{:01d}{:02d}{:02d}{:03d}{:01d}".format(
                 block["start"][0] + 1,
                 block["start"][1],
                 block["start"][2],
@@ -215,7 +149,6 @@ def api():
 
         exc_week = ""
         for block in device.exceptions:
-            # month in javascript starts at 0, so increase by one
             start = datetime(
                 block["start"][0],
                 block["start"][1] + 1,
@@ -232,14 +165,11 @@ def api():
                 0,
                 tzinfo=timezone(timedelta(seconds=-time.timezone)),
             )
-            # time in javascript implementation could start/end at 24, to not trigger an exception we use timedelta to add it
-            start = start + timedelta(
-                hours=block["start"][3], minutes=block["start"][4]
-            )
+            start = start + timedelta(hours=block["start"][3], minutes=block["start"][4])
             end = end + timedelta(hours=block["end"][3], minutes=block["end"][4])
             start = int(start.astimezone(timezone.utc).timestamp())
             end = int(end.astimezone(timezone.utc).timestamp())
-            exc_week = exc_week + "x{:08X}{:08X}{:03d}{:01d}X".format(
+            exc_week += "x{:08X}{:08X}{:03d}{:01d}X".format(
                 start, end, device.predefined_temperatures[block["temperature"]], 0
             )
 
@@ -247,7 +177,6 @@ def api():
         xml += "v{:04X}".format(cal_version & 0xFFFF)
         xml += std_week + exc_week
         xml += "</CAL>"
-
         device.cal_version = cal_version
         device.cal_synced = True
         db.session.commit()
@@ -255,52 +184,30 @@ def api():
     if int(tsreq["pv"][0]) != device.room_temperature:
         device.room_temperature = tsreq["pv"][0]
         db.session.commit()
-        emit(
-            "room_temperature",
-            {"room_temperature": int(tsreq["pv"][0])},
-            namespace="/",
-            to=hardware_id,
-        )
+        emit("room_temperature", {"room_temperature": int(tsreq["pv"][0])}, namespace="/", to=hardware_id)
 
     if kp := tsreq.get("kp"):
         kp = float(kp[0])
         if kp != device.kp:
             device.kp = kp
             db.session.commit()
-
     if ti := tsreq.get("ti"):
         ti = float(ti[0])
         if ti != device.ti:
             device.ti = ti
             db.session.commit()
-
     if td := tsreq.get("td"):
         td = float(td[0])
         if td != device.td:
             device.td = td
             db.session.commit()
-
     if oo := tsreq.get("oo"):
         oo = int(oo[0])
         if oo != device.oo:
             device.oo = oo
             db.session.commit()
 
-    otparams = [
-        "ot0",
-        "ot1",
-        "ot3",
-        "ot17",
-        "ot18",
-        "ot19",
-        "ot25",
-        "ot26",
-        "ot27",
-        "ot28",
-        "ot34",
-        "ot56",
-        "ot125",
-    ]
+    otparams = ["ot0", "ot1", "ot3", "ot17", "ot18", "ot19", "ot25", "ot26", "ot27", "ot28", "ot34", "ot56", "ot125"]
     otchanged = False
     for param in otparams:
         if param in tsreq:
@@ -313,97 +220,64 @@ def api():
 
     hw = int(tsreq["hw"][0])
     if hw != device.hw:
-        hw = int(tsreq["hw"][0])
         device.hw = hw
         db.session.commit()
 
-    if hw == 5:
-        fw = int(tsreq["fw"][0][1:])
-    else:
-        fw = int(tsreq["fw"][0])
+    fw = int(tsreq["fw"][0][1:]) if hw == 5 else int(tsreq["fw"][0])
     if fw != device.fw:
         device.fw = fw
         db.session.commit()
 
-    # TODO: further look into why firmware update process leaks and crashes
     # if firmware_upgrade_needed(hw, fw):
     #     xml += "<FW>1</FW>"
 
     if int(tsreq["pv"][0]) != device.room_temperature:
         device.room_temperature = tsreq["pv"][0]
         db.session.commit()
-        emit(
-            "room_temperature",
-            {"room_temperature": int(tsreq["pv"][0])},
-            namespace="/",
-            to=hardware_id,
-        )
+        emit("room_temperature", {"room_temperature": int(tsreq["pv"][0])}, namespace="/", to=hardware_id)
 
     if (
         not device.outside_temperature_timestamp
-        or datetime.fromtimestamp(device.outside_temperature_timestamp)
-        + timedelta(seconds=3600)
-        < datetime.utcnow()
+        or datetime.fromtimestamp(device.outside_temperature_timestamp) + timedelta(seconds=3600) < datetime.utcnow()
     ):
         location = Location.query.filter_by(id=device.location_id).one()
         if location is None:
             return Response(response="no location", status=400)
-
-        querystring = {
-            "location": f"{location.latitude}, {location.longitude}",
-            "apikey": TOMORROW_APIKEY,
-        }
-        url = "https://api.tomorrow.io/v4/weather/realtime"
-        response = requests.request("GET", url, params=querystring)
+        response = requests.request(
+            "GET",
+            "https://api.tomorrow.io/v4/weather/realtime",
+            params={"location": f"{location.latitude}, {location.longitude}", "apikey": TOMORROW_APIKEY},
+        )
         response = json.loads(response.text)
         outside_temperature = int(response["data"]["values"]["temperature"] * 10)
-
         xml += f"<BVSET>{outside_temperature}</BVSET>"
         emit(
             "outside_temperature",
-            {
-                "location": location.city,
-                "outside_temperature": outside_temperature,
-                "outside_temperature_icon": None,
-            },
+            {"location": location.city, "outside_temperature": outside_temperature, "outside_temperature_icon": None},
             namespace="/",
             to=hardware_id,
         )
-
         device.outside_temperature = outside_temperature
         device.outside_temperature_timestamp = calendar.timegm(time.gmtime())
         db.session.commit()
 
-    # we need to initialize (device probably had a reboot)
     if "init" in tsreq:
-
         pause = int(device.source == Source.PAUSE.value)
         xml += f"<PAUSE>{pause}</PAUSE>"
-        xml += (
-            f"<INIT><SRC>{device.source}</SRC><LOCALE>{device.locale}</LOCALE></INIT>"
-        )
+        xml += f"<INIT><SRC>{device.source}</SRC><LOCALE>{device.locale}</LOCALE></INIT>"
         xml += f"<SVSET>{device.target_temperature}</SVSET>"
         xml += f"<BVSET>{device.outside_temperature}</BVSET>"
         xml += f"<TA>{device.ta}</TA>"
         xml += f"<DIM>{device.dim}</DIM>"
         xml += f"<SLS>{device.sl}</SLS>"
         xml += f"<SD>{device.sd}</SD>"
-        xml += (
-            f"<PID><KP>{device.kp}</KP><TI>{device.ti}</TI><TD>{device.td}</TD></PID>"
-        )
-
-    # is there a change from the webinterface?
+        xml += f"<PID><KP>{device.kp}</KP><TI>{device.ti}</TI><TD>{device.td}</TD></PID>"
     elif device.ui_synced is False:
-
-        # somebody pressed pause?
         if device.ui_source == "pause_button":
             pause = int(device.source == Source.PAUSE.value)
             xml += f"<PAUSE>{pause}</PAUSE>"
             xml += f"<INIT><SRC>{device.source}</SRC></INIT>"
-        elif (
-            device.ui_source == "direct_temperature_setter_up"
-            or device.ui_source == "direct_temperature_setter_down"
-        ):
+        elif device.ui_source in ("direct_temperature_setter_up", "direct_temperature_setter_down"):
             xml += "<PAUSE>0</PAUSE>"
             xml += f"<INIT><SRC>{device.source}</SRC></INIT>"
             xml += f"<SVSET>{device.target_temperature}</SVSET>"
@@ -413,84 +287,38 @@ def api():
             xml += f"<INIT><LOCALE>{device.locale}</LOCALE></INIT>"
             xml += f"<SLS>{device.sl}</SLS>"
             xml += f"<SD>{device.sd}</SD>"
-
-        # we have synced to the device
         device.ui_synced = True
         db.session.commit()
-
     elif "src" in tsreq:
-
         tssrc = int(tsreq["src"][0])
-
-        # we're in manual (using TS interface) mode, communicate the manual temperature to our webinterface
-        if (
-            tssrc == Source.MANUAL.value
-            and "csv" in tsreq
-            and int(tsreq["csv"][0]) != device.target_temperature
-        ):
+        if tssrc == Source.MANUAL.value and "csv" in tsreq and int(tsreq["csv"][0]) != device.target_temperature:
             device.source = Source.MANUAL.value
             device.target_temperature = int(tsreq["csv"][0])
             db.session.commit()
-            emit(
-                "target_temperature",
-                {"target_temperature": int(tsreq["csv"][0])},
-                namespace="/",
-                to=hardware_id,
-            )
+            emit("target_temperature", {"target_temperature": int(tsreq["csv"][0])}, namespace="/", to=hardware_id)
             emit("source", {"source": tssrc}, namespace="/", to=hardware_id)
-
         elif tssrc == Source.CRASH.value:
-
             device.source = Source.STD_WEEK.value
             db.session.commit()
-
             xml += "<PAUSE>0</PAUSE>"
             xml += f"<INIT><SRC>{Source.STD_WEEK.value}</SRC></INIT>"
-
-            emit(
-                "source",
-                {"source": Source.STD_WEEK.value},
-                namespace="/",
-                to=hardware_id,
-            )
-
+            emit("source", {"source": Source.STD_WEEK.value}, namespace="/", to=hardware_id)
         elif tssrc != device.source:
             device.source = tssrc
             db.session.commit()
-
-            # communicate new state to ui
             emit("source", {"source": tssrc}, namespace="/", to=hardware_id)
+
         if int(tsreq["csv"][0]) != device.target_temperature:
             device.target_temperature = int(tsreq["csv"][0])
-            emit(
-                "target_temperature",
-                {"target_temperature": int(tsreq["csv"][0])},
-                namespace="/",
-                to=hardware_id,
-            )
+            emit("target_temperature", {"target_temperature": int(tsreq["csv"][0])}, namespace="/", to=hardware_id)
 
-    updatetime = False
-    if "ts" in tsreq:
-        # Time on thermostat must be updated when difference is greater than 60 seconds
-        now = int(time.time())
-        ts_req = int(tsreq["ts"][0])
-        if abs(ts_req - now) > 60:
-            updatetime = True
-    else:
-        updatetime = True
-
+    updatetime = "ts" not in tsreq or abs(int(tsreq["ts"][0]) - int(time.time())) > 60
     if updatetime:
-        # Time (GMT) in seconds
         xml += f"<TS>{int(time.time())}</TS>"
 
-    # time zone offset in minutes (signed).
-    tz = int(device.utc_offset_in_seconds() / 60)
-    xml += f"<TZ>{tz}</TZ>"
-
+    xml += f"<TZ>{int(device.utc_offset_in_seconds() / 60)}</TZ>"
     xml += "</ITHERMOSTAT>"
-
     _LOGGER.info("Response %s:%s - %s", request.remote_addr, arg[1], xml)
-
     data = encrypt_response(xml, device.password)
     return Response(response=data, status=200, mimetype="application/octet-stream")
 
@@ -530,33 +358,24 @@ def thermostat(device_id):
                 },
             },
         )
-    else:
-        data = request.json
 
-        if data.get("target_temperature"):
-            device.target_temperature = data.get("target_temperature")
-
-        if data.get("exceptions"):
-            device.exceptions = data.get("exceptions")
-
-        if data.get("standard_week"):
-            device.standard_week = data.get("standard_week")
-
-        if data.get("predefined_temperatures"):
-            device.predefined_temperatures = data.get("predefined_temperatures")
-
-        if data.get("outside_temperature"):
-            device.outside_temperature = data.get("outside_temperature")
-
-        if data.get("room_temperature"):
-            device.room_temperature = data.get("room_temperature")
-
-        if data.get("pause"):
-            device.room_temperature = data.get("pause")
-            device.ui_synced = False
-            device.ui_source = "pause_button"
-            device.source = Source.PAUSE.value
-
-        device.commit()
-
+    data = request.json
+    if data.get("target_temperature"):
+        device.target_temperature = data.get("target_temperature")
+    if data.get("exceptions"):
+        device.exceptions = data.get("exceptions")
+    if data.get("standard_week"):
+        device.standard_week = data.get("standard_week")
+    if data.get("predefined_temperatures"):
+        device.predefined_temperatures = data.get("predefined_temperatures")
+    if data.get("outside_temperature"):
+        device.outside_temperature = data.get("outside_temperature")
+    if data.get("room_temperature"):
+        device.room_temperature = data.get("room_temperature")
+    if data.get("pause"):
+        device.room_temperature = data.get("pause")
+        device.ui_synced = False
+        device.ui_source = "pause_button"
+        device.source = Source.PAUSE.value
+    device.commit()
     return Response(response="invalid method", status=400)

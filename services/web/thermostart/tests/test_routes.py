@@ -1,3 +1,6 @@
+from thermostart import create_app
+
+
 class TestBasicRoutesAnonymous:
     def test_homepage(self, client):
         response = client.get("/")
@@ -76,3 +79,75 @@ class TestUserRoutesLoggedUser:
         response = client.get("/account")
         assert response.status_code == 302
         assert b'href="/login?next=%2Faccount"' in response.data
+
+
+class TestThermostatModel:
+    def setup_method(self):
+        from thermostart import db, fill_location_db
+        from thermostart.models import Device
+        from thermostart.config import Config
+        self.app = create_app()
+        self.app.config.update({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+        with self.app.app_context():
+            db.create_all()
+            fill_location_db(self.app)
+            device = Device(hardware_id="dev1", password="pwd")
+            device.location_id = 1
+            db.session.add(device)
+            db.session.commit()
+        self.client = self.app.test_client()
+        with self.client:
+            self.client.post("/login", data={"hardware_id": "dev1", "password": "pwd"})
+
+    def teardown_method(self):
+        from thermostart import db
+        with self.app.app_context():
+            db.drop_all()
+
+    def test_defaults_and_updates(self):
+        from thermostart import db
+        from thermostart.models import Device
+        from thermostart.config import Config
+        with self.client:
+            resp = self.client.get("/thermostatmodel")
+            data = resp.get_json()
+            assert data["log_opentherm"] == Config.PARSE_AND_STORE_MESSAGES
+            assert data["log_retention_days"] == Config.MESSAGE_RETENTION_DAYS
+
+        with self.app.app_context():
+            device = Device.query.get("dev1")
+            device.log_opentherm = not Config.PARSE_AND_STORE_MESSAGES
+            device.log_retention_days = 5
+            db.session.commit()
+
+        with self.client:
+            resp = self.client.get("/thermostatmodel")
+            data = resp.get_json()
+            assert data["log_opentherm"] == (not Config.PARSE_AND_STORE_MESSAGES)
+            assert data["log_retention_days"] == 5
+
+
+class TestPruneMessages:
+    def test_prune(self, app):
+        from thermostart import db, fill_location_db
+        from thermostart.models import Device, ParsedMessage
+        from datetime import datetime, timedelta, timezone
+
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+        with app.app_context():
+            db.create_all()
+            fill_location_db(app)
+            device = Device(hardware_id="dev2", password="pwd", log_opentherm=True, log_retention_days=1)
+            device.location_id = 1
+            db.session.add(device)
+            old_ts = datetime.now(timezone.utc) - timedelta(days=2)
+            msg = ParsedMessage(device_hardware_id="dev2", timestamp=old_ts)
+            db.session.add(msg)
+            db.session.commit()
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=device.log_retention_days)
+            deleted = db.session.query(ParsedMessage).filter(ParsedMessage.timestamp < cutoff).delete()
+            db.session.commit()
+
+            assert deleted == 1
+            assert ParsedMessage.query.count() == 0

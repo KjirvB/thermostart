@@ -104,6 +104,10 @@ $(function() {
         var firmwareToggle = new ts.FirmwareToggle({ el: $('#firmware-container'), model: thermostat });
     }
 
+    if ($('#opentherm-settings').length) {
+        var otSettings = new ts.OpenThermSettings({ el: $('#opentherm-settings'), model: thermostat });
+    }
+
     if ($('.factory-reset').length) {
         
         $('.factory-reset .btn-reset-standard-week').on('click', function() {

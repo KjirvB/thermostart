@@ -28,6 +28,12 @@ docker-compose down
 ```
 To use the application visit http://localhost:3888 in your browser.
 
+## OpenTherm logging
+Each device can store OpenTherm data. When a device is created the initial values are taken from the environment variables `PARSE_AND_STORE_MESSAGES` and `MESSAGE_RETENTION_DAYS`. You can change these settings from the web interface.
+
+## Weather API
+The outside weather lookup uses Tomorrow.io. Add `TOMORROW_APIKEY` to your environment variables in `.env.dev` and `.env.prod` when you want weather updates to work.
+
 #### Additional useful commands
 ```
 # RUN in DEBUG mode
@@ -46,9 +52,9 @@ docker-compose -f docker-compose.prod.yml build --build-arg TS_IMAGE=python:3.12
 # Docker running operations
 docker-compose build
 docker-compose build --no-cache
-docker-compose up -d      # d makes in run in the background
-docker-compose down       # remove existing container        | CAREFUL IN PRODUCTION!
-docker-compose down -v    # include volume of sqlite data    | CAREFUL IN PRODUCTION!
+docker-compose up -d      # d makes in run in the background
+docker-compose down       # remove existing container            | CAREFUL IN PRODUCTION!
+docker-compose down -v    # include volume of sqlite data        | CAREFUL IN PRODUCTION!
 
 # Docker check logs
 docker-compose logs
@@ -65,8 +71,9 @@ docker start thermostart-web-1
 ## Production
 Basically it's the same way as dev server, but you need to use different files:
 - create .env.prod for environment variables:
-  - `APP_FOLDER=/home/app/web`
-  - `DATABASE_URL= <URL with proper database data>`
+  - `APP_FOLDER=/home/app/web`
+  - `DATABASE_URL= <URL with proper database data>`
+  - `TOMORROW_APIKEY=<your Tomorrow.io API key>`
 
 And most importantly, to every docker command add the "-f" flag: `-f docker-compose.prod.yml`
 to point to the file that you want to use to build images and run. Example:

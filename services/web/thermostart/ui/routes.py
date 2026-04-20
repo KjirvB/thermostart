@@ -40,6 +40,8 @@ def thermostatmodel():
         fw=current_user.fw,
         hw=current_user.hw,
         utc_offset=current_user.utc_offset_in_seconds() / 3600,
+        log_opentherm=current_user.log_opentherm,
+        log_retention_days=current_user.log_retention_days,
         oo=current_user.oo,
         ot0=current_user.ot0,
         ot1=current_user.ot1,
