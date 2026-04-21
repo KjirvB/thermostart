@@ -10,8 +10,8 @@ from flask import Blueprint, Response, jsonify, make_response, request
 from flask_socketio import emit
 
 from thermostart import db
-from thermostart.models import Device, DeviceMessage, Location, ParsedMessage
 from thermostart.config import Config
+from thermostart.models import Device, DeviceMessage, Location, ParsedMessage
 
 from .utils import (
     Source,
