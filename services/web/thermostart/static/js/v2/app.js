@@ -39,6 +39,10 @@ window.thermostatApp = function () {
 
     init: function () {
       var self = this;
+      // Re-point the store at the Alpine reactive proxy so socket-driven
+      // updates flip the UI.
+      window.tsStore.bindReactive(this.store);
+
       this.applyHash();
       window.addEventListener("hashchange", function () { self.applyHash(); });
 

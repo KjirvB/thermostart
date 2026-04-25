@@ -4,6 +4,12 @@ module.exports = {
     "./templates/v2/**/*.html",
     "./static/js/v2/**/*.js",
   ],
+  // Block colour classes are picked from a string built at runtime
+  // (`'ts-block-' + key`), so Tailwind cannot see them in the source.
+  safelist: [
+    "ts-block-home", "ts-block-not_home", "ts-block-comfort",
+    "ts-block-anti_freeze", "ts-block-pause",
+  ],
   theme: {
     extend: {
       colors: {
