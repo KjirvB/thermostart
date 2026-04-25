@@ -7,11 +7,34 @@ from thermostart.ts.utils import get_firmware, get_firmware_name
 
 ui = Blueprint("ui", __name__)
 
+UI_COOKIE = "ts_ui"
+UI_VERSIONS = {"legacy", "v2"}
+UI_COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
+
 
 @ui.route("/ui")
 @login_required
 def home():
+    if request.cookies.get(UI_COOKIE) == "v2":
+        return render_template("v2/ui_v2.html")
     return render_template("ui.html")
+
+
+@ui.route("/ui/preference", methods=["POST"])
+@login_required
+def ui_preference():
+    version = request.form.get("version") or (request.json or {}).get("version")
+    if version not in UI_VERSIONS:
+        return ("invalid version", 400)
+    response = make_response("", 204)
+    response.set_cookie(
+        UI_COOKIE,
+        version,
+        max_age=UI_COOKIE_MAX_AGE,
+        samesite="Lax",
+        httponly=False,
+    )
+    return response
 
 
 @ui.route("/thermostatmodel")

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <title>ThermoSmart</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/v2.css') }}">
+  <script src="{{ url_for('static', filename='lib/socket.io.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/api.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/socket.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/store.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/schedule.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/v2/app.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='lib/sortable.min.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='lib/alpine.min.js') }}"></script>
+</head>
+<body class="min-h-full">
+  <div x-data="thermostatApp()" x-init="init()" x-cloak class="min-h-screen flex flex-col">
+    <header class="sticky top-0 z-30 bg-ts-surface/95 backdrop-blur border-b border-ts-border">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-3">
+        <div class="flex items-center gap-2 mr-2">
+          <span class="h-2.5 w-2.5 rounded-full"
+                :class="connected ? 'bg-ts-good shadow-[0_0_8px] shadow-ts-good' : 'bg-ts-bad'"></span>
+          <span class="font-semibold tracking-tight">ThermoSmart</span>
+        </div>
+        <nav class="flex items-center gap-1 overflow-x-auto">
+          <template x-for="t in tabs" :key="t.hash">
+            <a :href="'#' + t.hash"
+               class="ts-tab whitespace-nowrap"
+               :class="route === t.hash ? 'ts-tab-active' : ''"
+               x-text="t.label"></a>
+          </template>
+        </nav>
+        <div class="ml-auto flex items-center gap-2">
+          <button class="ts-btn-ghost text-xs hidden sm:inline-flex" @click="switchUi('legacy')" title="Switch back to the classic interface">Classic UI</button>
+          <a href="{{ url_for('main.account') if false else 'account' }}" class="ts-btn-icon" title="Account">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
+          </a>
+          <a href="logout" class="ts-btn-icon" title="Log out">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l-5-5 5-5"/><path d="M15 12H5"/></svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <template x-if="!loaded">
+        <div class="flex items-center justify-center h-64 text-ts-muted">
+          <svg class="animate-spin h-6 w-6 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M21 12a9 9 0 00-9-9"/></svg>
+          Loading…
+        </div>
+      </template>
+      <div x-show="loaded">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+
+    <footer class="border-t border-ts-border text-xs text-ts-muted">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex items-center gap-3 flex-wrap">
+        <span>ThermoSmart</span>
+        <span>·</span>
+        <span x-text="store.locale || ''"></span>
+        <span class="ml-auto" x-show="store.fw">FW <span x-text="store.fw"></span></span>
+      </div>
+    </footer>
+
+    <!-- Modal host -->
+    <template x-if="modal.kind">
+      <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-3" @keydown.escape.window="closeModal()">
+        <div class="ts-card w-full max-w-md p-5" @click.outside="closeModal()">
+          <div class="flex items-start gap-3">
+            <h3 class="text-lg font-semibold flex-1" x-text="modal.title"></h3>
+            <button class="ts-btn-icon" @click="closeModal()" aria-label="Close">
+              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+            </button>
+          </div>
+          <div class="mt-4 space-y-4">
+            <!-- Edit block modal -->
+            <template x-if="modal.kind === 'editBlock'">
+              <div class="space-y-3">
+                <label class="block text-sm text-ts-muted">Program</label>
+                <select class="ts-input w-full" x-model="modal.draft.temperature">
+                  <template x-for="key in programKeys(modal.allowPause)" :key="key">
+                    <option :value="key" x-text="programLabel(key)"></option>
+                  </template>
+                </select>
+                <template x-if="modal.allowDescription">
+                  <div>
+                    <label class="block text-sm text-ts-muted">Description</label>
+                    <input class="ts-input w-full" x-model="modal.draft.description" placeholder="Optional note">
+                  </div>
+                </template>
+                <div class="flex flex-wrap justify-end gap-2 pt-2">
+                  <template x-if="modal.allowDelete">
+                    <button class="ts-btn-ghost text-ts-bad border-ts-bad/40 mr-auto" @click="confirmDelete()">Delete</button>
+                  </template>
+                  <button class="ts-btn-ghost" @click="closeModal()">Cancel</button>
+                  <button class="ts-btn-primary" @click="confirmEditBlock()">Save</button>
+                </div>
+              </div>
+            </template>
+            <!-- Edit program modal -->
+            <template x-if="modal.kind === 'editProgram'">
+              <div class="space-y-3">
+                <label class="block text-sm text-ts-muted">Label</label>
+                <input class="ts-input w-full" x-model="modal.draft.label">
+                <label class="block text-sm text-ts-muted">Temperature</label>
+                <div class="flex items-center gap-3">
+                  <button class="ts-btn-icon" @click="modal.draft.temperature = Math.max(50, modal.draft.temperature - 5)">−</button>
+                  <span class="text-2xl font-semibold tabular-nums" x-text="(modal.draft.temperature/10).toFixed(1) + '°C'"></span>
+                  <button class="ts-btn-icon" @click="modal.draft.temperature = Math.min(250, modal.draft.temperature + 5)">+</button>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button class="ts-btn-ghost" @click="closeModal()">Cancel</button>
+                  <button class="ts-btn-primary" @click="confirmEditProgram()">Save</button>
+                </div>
+              </div>
+            </template>
+            <!-- Confirm modal -->
+            <template x-if="modal.kind === 'confirm'">
+              <div class="space-y-3">
+                <p class="text-slate-200" x-text="modal.message"></p>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button class="ts-btn-ghost" @click="closeModal()">Cancel</button>
+                  <button class="ts-btn-primary" @click="modal.onConfirm && modal.onConfirm(); closeModal();">Confirm</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</body>
+</html>

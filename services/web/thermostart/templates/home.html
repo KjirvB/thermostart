@@ -51,6 +51,7 @@
                       <span></span>
                   </a>
                   <a class="link-logout" href="logout"><i class="icon icon-leave"></i></a>
+                  <a class="link-ui-switch" href="#" title="Switch to the new design">Try new design</a>
               </div>
           </div>
         </div>
@@ -99,6 +100,19 @@
     <script src="static/js/Schedule.js"></script>
     <script src="static/js/OpenTherm.js"></script>
     <script src="static/js/ithermostat.js"></script>
+    <script>
+      (function() {
+        var link = document.querySelector('.link-ui-switch');
+        if (!link) return;
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          var data = new FormData();
+          data.append('version', 'v2');
+          fetch('ui/preference', { method: 'POST', body: data, credentials: 'same-origin' })
+            .then(function() { window.location.reload(); });
+        });
+      })();
+    </script>
 </body>
 
 </html>

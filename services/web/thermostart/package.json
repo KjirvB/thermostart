@@ -1,0 +1,12 @@
+{
+  "name": "thermostart-ui-v2",
+  "private": true,
+  "description": "Tailwind build for the v2 web UI. Output: static/css/v2.css.",
+  "scripts": {
+    "build:css": "tailwindcss -i src/v2.css -o static/css/v2.css --minify",
+    "watch:css": "tailwindcss -i src/v2.css -o static/css/v2.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.13"
+  }
+}

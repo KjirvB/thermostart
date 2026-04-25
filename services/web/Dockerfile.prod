@@ -28,6 +28,21 @@ COPY ./requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
 
 
+############
+# CSS BUILD #
+############
+
+# Compile the v2 Tailwind CSS bundle so production never serves a stale stylesheet.
+FROM node:20-bullseye-slim as css-builder
+WORKDIR /css
+COPY ./thermostart/package.json ./thermostart/tailwind.config.js ./
+COPY ./thermostart/src ./src
+COPY ./thermostart/templates ./templates
+COPY ./thermostart/static ./static
+RUN npm install --no-audit --no-fund \
+  && npx tailwindcss -i src/v2.css -o static/css/v2.css --minify
+
+
 #########
 # FINAL #
 #########
@@ -60,6 +75,9 @@ COPY ./entrypoint.sh $APP_HOME
 
 # copy project
 COPY . $APP_HOME
+
+# overwrite the committed v2 CSS bundle with the freshly compiled one
+COPY --from=css-builder /css/static/css/v2.css $APP_HOME/thermostart/static/css/v2.css
 
 # chown all the files to the app user
 RUN chown -R app:app $APP_HOME

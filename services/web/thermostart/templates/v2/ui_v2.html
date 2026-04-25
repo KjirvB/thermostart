@@ -1,0 +1,8 @@
+{% extends "v2/base.html" %}
+{% block content %}
+<section x-show="route === 'home'">{% include 'v2/partials/overview.html' %}</section>
+<section x-show="route === 'exceptions'">{% include 'v2/partials/exceptions.html' %}</section>
+<section x-show="route === 'standard-week'">{% include 'v2/partials/standard_week.html' %}</section>
+<section x-show="route === 'settings'">{% include 'v2/partials/settings.html' %}</section>
+<section x-show="route === 'ot'">{% include 'v2/partials/opentherm.html' %}</section>
+{% endblock %}

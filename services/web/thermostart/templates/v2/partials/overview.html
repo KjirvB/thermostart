@@ -1,0 +1,85 @@
+<div class="grid gap-4 md:grid-cols-3">
+  <!-- Target temperature card -->
+  <div class="ts-card p-5 md:col-span-2 flex flex-col gap-4">
+    <div class="flex items-start gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-ts-muted">Current program</p>
+        <p class="text-lg font-semibold mt-0.5" x-text="currentProgramLabel()"></p>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <button class="ts-btn-ghost text-sm"
+                :class="pauseActive() ? 'text-ts-warn border-ts-warn/40' : ''"
+                @click="togglePause()">
+          <span x-text="pauseActive() ? 'Resume' : 'Pause'"></span>
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center justify-between gap-4 mt-2">
+      <button class="ts-btn-icon h-14 w-14 text-2xl" @click="bumpTarget(-1)" aria-label="Lower target">−</button>
+      <div class="text-center">
+        <div class="text-6xl sm:text-7xl font-semibold tabular-nums tracking-tight">
+          <span x-text="targetC().toFixed(1)"></span><span class="text-3xl text-ts-muted ml-1">°C</span>
+        </div>
+        <p class="text-xs text-ts-muted mt-1">Target</p>
+      </div>
+      <button class="ts-btn-icon h-14 w-14 text-2xl" @click="bumpTarget(1)" aria-label="Raise target">+</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <div class="bg-ts-surface rounded-lg p-3 border border-ts-border">
+        <p class="text-xs text-ts-muted">Room</p>
+        <p class="text-2xl font-semibold tabular-nums" x-text="roomC().toFixed(1) + ' °C'"></p>
+      </div>
+      <div class="bg-ts-surface rounded-lg p-3 border border-ts-border">
+        <p class="text-xs text-ts-muted">Outside</p>
+        <p class="text-2xl font-semibold tabular-nums" x-text="outsideC().toFixed(1) + ' °C'"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status card -->
+  <div class="ts-card p-5 flex flex-col gap-3">
+    <div>
+      <p class="text-xs uppercase tracking-wide text-ts-muted">Status</p>
+      <p class="text-base mt-1">
+        <span class="ts-pill"
+              :class="connected ? 'bg-ts-good/15 text-ts-good' : 'bg-ts-bad/15 text-ts-bad'"
+              x-text="connected ? 'Online' : 'Offline'"></span>
+      </p>
+    </div>
+    <div class="text-sm space-y-1">
+      <p><span class="text-ts-muted">Mode:</span>
+        <span x-text="store.source === 1 ? 'Manual' : (store.source === 5 ? 'Paused' : 'Scheduled')"></span></p>
+      <p><span class="text-ts-muted">Hardware:</span> <span x-text="'rev ' + (store.hw || '?')"></span></p>
+      <p><span class="text-ts-muted">Firmware:</span> <span x-text="store.fw || '—'"></span></p>
+    </div>
+  </div>
+
+  <!-- Week strip: 7 horizontal bars (one per day) -->
+  <div class="ts-card p-5 md:col-span-3">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-semibold">This week</p>
+      <a href="#standard-week" class="text-xs text-ts-accent hover:underline">Edit schedule →</a>
+    </div>
+    <div class="space-y-1">
+      <div class="grid grid-cols-[3rem_1fr] gap-2 text-[10px] text-ts-muted">
+        <div></div>
+        <div class="grid grid-cols-4 gap-0">
+          <div>00:00</div><div>06:00</div><div>12:00</div><div>18:00</div>
+        </div>
+      </div>
+      <template x-for="d in 7" :key="d">
+        <div class="grid grid-cols-[3rem_1fr] items-center gap-2">
+          <div class="text-xs text-ts-muted uppercase" x-text="weekdayShort(d - 1)"></div>
+          <div class="relative h-6 bg-ts-surface rounded border border-ts-border/60 overflow-hidden">
+            <template x-for="b in blocksForDay(d - 1)" :key="b.startSlot + '-' + b.endSlot + '-' + b.temperature">
+              <div class="absolute top-0 bottom-0"
+                   :class="programColorClass(b.temperature)"
+                   :style="'left:' + (b.startSlot/96*100) + '%; width:' + ((b.endSlot - b.startSlot)/96*100) + '%;'"
+                   :title="programLabel(b.temperature) + ' ' + slotToHHMM(b.startSlot) + '–' + slotToHHMM(b.endSlot)"></div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,83 @@
+<div class="space-y-4">
+  <div class="ts-card p-4 sm:p-5">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <p class="text-base font-semibold">Weekly schedule</p>
+        <p class="text-xs text-ts-muted">Tap a block to change or remove it. Use a program button below to add a new block on a day.</p>
+      </div>
+    </div>
+
+    <!-- Program palette -->
+    <div class="flex flex-wrap gap-2 mt-4">
+      <template x-for="key in programKeys(true)" :key="'pgm-' + key">
+        <div class="flex items-center gap-1">
+          <button class="ts-program-chip"
+                  :class="programColorClass(key) + (standardWeek.selectedProgram === key ? ' ring-2 ring-white/70' : '')"
+                  @click="standardWeek.selectedProgram = key">
+            <span x-text="programLabel(key)"></span>
+            <span class="opacity-80 text-xs ml-1"
+                  x-text="((store.predefined_temperatures || {})[key]/10).toFixed(1) + '°'"></span>
+          </button>
+          <button class="ts-btn-icon h-8 w-8 text-xs" title="Edit program" @click="editProgram(key)">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+        </div>
+      </template>
+    </div>
+    <p class="text-xs text-ts-muted mt-2"
+       x-show="standardWeek.selectedProgram">
+      <span class="ts-pill mr-1" :class="programColorClass(standardWeek.selectedProgram)" x-text="programLabel(standardWeek.selectedProgram)"></span>
+      Tap a day below to add a block.
+    </p>
+  </div>
+
+  <!-- 7-day grid: each day is a column -->
+  <div class="ts-card p-3 sm:p-4 overflow-x-auto">
+    <div class="min-w-[640px] grid grid-cols-week gap-1">
+      <!-- Header row -->
+      <div class="text-[10px] text-ts-muted text-right pr-1">time</div>
+      <template x-for="d in 7" :key="'hd-' + d">
+        <button class="text-xs font-semibold text-ts-muted hover:text-white py-1 rounded hover:bg-white/5"
+                @click="standardWeek.selectedProgram && addStandardWeekBlock(d - 1, standardWeek.selectedProgram)"
+                :title="standardWeek.selectedProgram ? 'Add ' + programLabel(standardWeek.selectedProgram) + ' on ' + weekdayShort(d - 1) : 'Pick a program first'">
+          <span x-text="weekdayShort(d - 1)"></span>
+          <span class="block text-[10px] text-ts-muted/60" x-text="standardWeek.selectedProgram ? '+ add' : ''"></span>
+        </button>
+      </template>
+
+      <!-- Hour markers + day columns -->
+      <div class="relative">
+        <template x-for="h in 24" :key="'hour-' + h">
+          <div class="absolute left-0 right-0 text-[10px] text-ts-muted text-right pr-1 tabular-nums"
+               :style="'top:' + ((h - 1)/24*100) + '%'">
+            <span x-text="(h - 1 < 10 ? '0' : '') + (h - 1) + ':00'"></span>
+          </div>
+        </template>
+        <div class="h-[576px]"></div>
+      </div>
+      <template x-for="d in 7" :key="'col-' + d">
+        <div class="relative h-[576px] bg-ts-surface border border-ts-border/60 rounded">
+          <template x-for="h in 23" :key="'hl-' + d + '-' + h">
+            <div class="absolute left-0 right-0 border-t border-ts-border/40"
+                 :style="'top:' + (h/24*100) + '%'"></div>
+          </template>
+          <template x-for="b in blocksForDay(d - 1)" :key="'b-' + d + '-' + b.startSlot + '-' + b.endSlot">
+            <button class="ts-block"
+                    :class="programColorClass(b.temperature)"
+                    :style="'top:' + (b.startSlot/96*100) + '%; height:' + ((b.endSlot - b.startSlot)/96*100) + '%;'"
+                    @click="editStandardWeekBlock(b)">
+              <div class="leading-tight">
+                <div x-text="programLabel(b.temperature)"></div>
+                <div class="opacity-80" x-text="slotToHHMM(b.startSlot) + '–' + slotToHHMM(b.endSlot)"></div>
+              </div>
+            </button>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <p class="text-xs text-ts-muted">
+    Empty space is treated as <span class="font-medium">Pause</span> (the base temperature). To remove a block, tap it and hit "Delete".
+  </p>
+</div>

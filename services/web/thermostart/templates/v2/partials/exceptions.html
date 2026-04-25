@@ -1,0 +1,78 @@
+<div class="space-y-4">
+  <div class="ts-card p-4 sm:p-5 flex flex-wrap items-end gap-4">
+    <div class="flex-1 min-w-[200px]">
+      <p class="text-base font-semibold">Agenda</p>
+      <p class="text-xs text-ts-muted">Override the standard week with one-off blocks for specific dates.</p>
+    </div>
+    <div class="flex flex-col">
+      <label class="text-xs uppercase tracking-wide text-ts-muted mb-1">Week of</label>
+      <input type="date" class="ts-input"
+             :value="exceptionsView.weekStartIso"
+             @change="setExceptionsWeek($event.target.value)">
+    </div>
+    <div class="text-sm text-ts-muted">
+      <span x-text="formatWeekLabel()"></span>
+    </div>
+  </div>
+
+  <!-- Program palette -->
+  <div class="ts-card p-4">
+    <p class="text-xs text-ts-muted mb-2">Pick a program, then tap a day to add a 1-hour exception.</p>
+    <div class="flex flex-wrap gap-2">
+      <template x-for="key in programKeys(false)" :key="'epgm-' + key">
+        <button class="ts-program-chip"
+                :class="programColorClass(key) + (exceptions.selectedProgram === key ? ' ring-2 ring-white/70' : '')"
+                @click="exceptions.selectedProgram = key">
+          <span x-text="programLabel(key)"></span>
+          <span class="opacity-80 text-xs ml-1"
+                x-text="((store.predefined_temperatures || {})[key]/10).toFixed(1) + '°'"></span>
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <!-- 7-day grid: each day is a column -->
+  <div class="ts-card p-3 sm:p-4 overflow-x-auto">
+    <div class="min-w-[640px] grid grid-cols-week gap-1">
+      <div class="text-[10px] text-ts-muted text-right pr-1">time</div>
+      <template x-for="d in 7" :key="'eh-' + d">
+        <button class="text-xs font-semibold text-ts-muted hover:text-white py-1 rounded hover:bg-white/5"
+                @click="exceptions.selectedProgram && addException(d - 1, exceptions.selectedProgram)">
+          <span x-text="weekdayShort(d - 1)"></span>
+          <span class="block text-[10px] text-ts-muted/60" x-text="exceptions.selectedProgram ? '+ add' : ''"></span>
+        </button>
+      </template>
+
+      <div class="relative">
+        <template x-for="h in 24" :key="'eh-h-' + h">
+          <div class="absolute left-0 right-0 text-[10px] text-ts-muted text-right pr-1 tabular-nums"
+               :style="'top:' + ((h - 1)/24*100) + '%'">
+            <span x-text="(h - 1 < 10 ? '0' : '') + (h - 1) + ':00'"></span>
+          </div>
+        </template>
+        <div class="h-[576px]"></div>
+      </div>
+      <template x-for="d in 7" :key="'ec-' + d">
+        <div class="relative h-[576px] bg-ts-surface border border-ts-border/60 rounded">
+          <template x-for="h in 23" :key="'ehl-' + d + '-' + h">
+            <div class="absolute left-0 right-0 border-t border-ts-border/40"
+                 :style="'top:' + (h/24*100) + '%'"></div>
+          </template>
+          <template x-for="b in exceptionsBlocks().filter(x => x.day === d - 1)"
+                    :key="'eb-' + d + '-' + b.refIndex + '-' + b.startSlot + '-' + b.endSlot">
+            <button class="ts-block"
+                    :class="programColorClass(b.temperature)"
+                    :style="'top:' + (b.startSlot/96*100) + '%; height:' + ((b.endSlot - b.startSlot)/96*100) + '%;'"
+                    @click="editException(b)">
+              <div class="leading-tight">
+                <div x-text="programLabel(b.temperature)"></div>
+                <div class="opacity-80" x-text="slotToHHMM(b.startSlot) + '–' + slotToHHMM(b.endSlot)"></div>
+                <div class="opacity-70 truncate" x-show="b.description" x-text="b.description"></div>
+              </div>
+            </button>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>

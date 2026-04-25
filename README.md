@@ -7,6 +7,31 @@ your old scheduling functionality back.
 
 Created with Flask technology and fully dockerized.
 
+## Web UI: classic and v2
+
+The application now ships two web interfaces. The legacy interface is the
+default; users can opt in to the new responsive design from the top bar
+("Try new design"), and switch back from inside it ("Classic UI"). The choice
+is stored per browser in the `ts_ui` cookie — there is no database migration.
+
+The new UI lives under `services/web/thermostart/templates/v2/` and uses
+Tailwind CSS + Alpine.js, with no production Node dependency. The compiled
+stylesheet `services/web/thermostart/static/css/v2.css` is committed so that
+the dev image works out of the box. To rebuild it after editing templates or
+the Tailwind source:
+
+```
+cd services/web/thermostart
+npm install            # one-time
+npm run build:css      # writes static/css/v2.css
+# or, while iterating:
+npm run watch:css
+```
+
+The production image rebuilds the bundle automatically through a `node:20`
+build stage in `services/web/Dockerfile.prod`, so a stale committed bundle
+cannot ship to prod.
+
 ## Flask commands
 
 ## Quick start: dockerize development

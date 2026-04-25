@@ -1,0 +1,103 @@
+<div class="grid gap-4 md:grid-cols-2">
+  <!-- Calibration -->
+  <div class="ts-card p-5">
+    <p class="text-base font-semibold">Temperature calibration</p>
+    <p class="text-xs text-ts-muted mt-1">Correct the displayed temperature in 0.5°C steps if it appears too high or low. Range −2.5 to +2.5°C.</p>
+    <div class="flex items-center gap-4 mt-4">
+      <button class="ts-btn-icon h-10 w-10 text-xl" @click="setTa(-5)">−</button>
+      <span class="text-3xl font-semibold tabular-nums">
+        <span x-text="((store.ta || 0) / 10 >= 0 ? '+' : '') + ((store.ta || 0) / 10).toFixed(1)"></span>
+        <span class="text-base text-ts-muted">°C</span>
+      </span>
+      <button class="ts-btn-icon h-10 w-10 text-xl" @click="setTa(5)">+</button>
+    </div>
+    <p class="text-xs text-ts-muted mt-2">
+      Effective room reading:
+      <span class="text-slate-200" x-text="((store.room_temperature + store.ta)/10).toFixed(1) + ' °C'"></span>
+    </p>
+  </div>
+
+  <!-- Display brightness -->
+  <div class="ts-card p-5">
+    <p class="text-base font-semibold">Display brightness</p>
+    <p class="text-xs text-ts-muted mt-1">Standby brightness, 0–100% in 25% steps.</p>
+    <div class="flex items-center gap-4 mt-4">
+      <button class="ts-btn-icon h-10 w-10 text-xl" @click="setDim(-25)">−</button>
+      <div class="flex-1">
+        <div class="h-2 bg-ts-surface rounded-full overflow-hidden">
+          <div class="h-full bg-ts-accent transition-all" :style="'width:' + (store.dim || 0) + '%'"></div>
+        </div>
+        <p class="text-xs text-center text-ts-muted mt-1"><span x-text="store.dim || 0"></span>%</p>
+      </div>
+      <button class="ts-btn-icon h-10 w-10 text-xl" @click="setDim(25)">+</button>
+    </div>
+  </div>
+
+  <!-- Status LED -->
+  <div class="ts-card p-5">
+    <p class="text-base font-semibold">Status LED</p>
+    <p class="text-xs text-ts-muted mt-1">Choose how the device's status LED behaves.</p>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <template x-for="opt in [{v:2, label:'On'}, {v:1, label:'Errors only'}, {v:0, label:'Off'}]" :key="'sl-' + opt.v">
+        <button class="ts-btn-ghost text-sm"
+                :class="store.sl === opt.v ? 'bg-ts-accent text-white border-ts-accent' : ''"
+                @click="setStatusLed(opt.v)"
+                x-text="opt.label"></button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Display mode -->
+  <div class="ts-card p-5">
+    <p class="text-base font-semibold">Display mode</p>
+    <p class="text-xs text-ts-muted mt-1">What the device shows on its main face.</p>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <template x-for="opt in [{v:0, label:'Temperature'}, {v:1, label:'Clock'}]" :key="'sd-' + opt.v">
+        <button class="ts-btn-ghost text-sm"
+                :class="store.sd === opt.v ? 'bg-ts-accent text-white border-ts-accent' : ''"
+                @click="setDisplayMode(opt.v)"
+                x-text="opt.label"></button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Locale -->
+  <div class="ts-card p-5">
+    <p class="text-base font-semibold">Language</p>
+    <p class="text-xs text-ts-muted mt-1">Locale used by the on-device interface.</p>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <template x-for="loc in [{v:'en-GB', label:'English'}, {v:'nl-NL', label:'Nederlands'}, {v:'de-DE', label:'Deutsch'}]" :key="'lc-' + loc.v">
+        <button class="ts-btn-ghost text-sm"
+                :class="store.locale === loc.v ? 'bg-ts-accent text-white border-ts-accent' : ''"
+                @click="setLocale(loc.v)"
+                x-text="loc.label"></button>
+      </template>
+    </div>
+  </div>
+
+  <!-- Firmware / connection -->
+  <div class="ts-card p-5 md:col-span-2">
+    <p class="text-base font-semibold">Connection</p>
+    <p class="text-xs text-ts-muted mt-1">Hostname and port used by the thermostat to reach this server. Update the firmware after changing them.</p>
+    <div class="grid sm:grid-cols-3 gap-3 mt-4">
+      <label class="block">
+        <span class="text-xs text-ts-muted">Host</span>
+        <input class="ts-input w-full mt-1" x-model="settings.hostInput" placeholder="thermostat.example.com">
+      </label>
+      <label class="block">
+        <span class="text-xs text-ts-muted">Port</span>
+        <input class="ts-input w-full mt-1" x-model="settings.portInput" inputmode="numeric" pattern="[0-9]*">
+      </label>
+      <div class="flex items-end">
+        <button class="ts-btn-primary w-full" @click="saveHostPort()">Save</button>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-4">
+      <template x-for="rev in [3, 4, 5]" :key="'fw-' + rev">
+        <button class="ts-btn-ghost text-sm" @click="downloadFirmware(rev)">
+          Download firmware (HW <span x-text="rev"></span>)
+        </button>
+      </template>
+    </div>
+  </div>
+</div>
