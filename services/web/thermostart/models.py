@@ -9,6 +9,7 @@ from sqlalchemy.sql import func
 
 from thermostart import db, login_manager
 from thermostart.ts.utils import Display, Source, StatusLed
+from thermostart.config import Config
 
 
 @login_manager.user_loader
@@ -141,6 +142,8 @@ class Device(UserMixin, db.Model):
     kp = db.Column(db.Float)
     ti = db.Column(db.Float)
     td = db.Column(db.Float)
+    log_opentherm = db.Column(db.Boolean, default=Config.PARSE_AND_STORE_MESSAGES)
+    log_retention_days = db.Column(db.Integer, default=Config.MESSAGE_RETENTION_DAYS)
 
     order = ["hardware_id", "password"]
 
