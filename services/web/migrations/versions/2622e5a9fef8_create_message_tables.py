@@ -1,7 +1,7 @@
-"""Create parsed_messages table
+"""Create device and parsed message tables
 
 Revision ID: 2622e5a9fef8
-Revises: 6a465cc4e610
+Revises: dd1fab5001db
 Create Date: 2024-10-06 22:26:36.850201
 
 """
@@ -11,12 +11,22 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "2622e5a9fef8"
-down_revision = "6a465cc4e610"
+down_revision = "dd1fab5001db"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
+    op.create_table(
+        "device_messages",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("device_hardware_id", sa.String(), nullable=False),
+        sa.Column("timestamp", sa.DateTime(), nullable=False),
+        sa.Column("message", sa.JSON(), nullable=False),
+        sa.ForeignKeyConstraint(["device_hardware_id"], ["device.hardware_id"]),
+        sa.PrimaryKeyConstraint("id"),
+    )
+
     op.create_table(
         "parsed_messages",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -87,3 +97,4 @@ def upgrade():
 
 def downgrade():
     op.drop_table("parsed_messages")
+    op.drop_table("device_messages")
