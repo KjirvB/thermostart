@@ -1,7 +1,7 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
-from pathlib import Path
 
 # Specify the path to your .env.dev file
 dotenv_path = (Path("../../..")) / ".env.dev"
