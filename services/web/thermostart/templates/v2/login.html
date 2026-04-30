@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-skin="paper">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign in · ThermoSmart</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  {% for href in v2_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='v2/' + href) }}">
+  {% endfor %}
+  <script>
+    (function() {
+      var stored = localStorage.getItem('ui.theme');
+      var effective = (stored === 'dark' || stored === 'light') ? stored
+        : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (effective === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
+  <style>
+    .login-wrap {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 18px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+    }
+    .login-card .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+      color: var(--ink-0);
+      margin-bottom: 28px;
+    }
+    .login-card .brand svg {
+      color: var(--ember);
+    }
+    .login-card h1 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 6px;
+    }
+    .login-card .sub {
+      font-size: 14px;
+      color: var(--ink-2);
+      margin-bottom: 28px;
+    }
+    .login-field {
+      margin-bottom: 14px;
+    }
+    .login-field label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--ink-3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .login-field input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .login-errors {
+      font-size: 12px;
+      color: var(--bad);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+    .login-flash {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    .login-flash.danger { background: color-mix(in oklch, var(--bad) 15%, var(--bg-1)); color: var(--bad); }
+    .login-flash.success { background: color-mix(in oklch, var(--good) 15%, var(--bg-1)); color: var(--good); }
+    .login-submit {
+      width: 100%;
+      margin-top: 8px;
+    }
+    .login-footer {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--ink-2);
+      text-align: center;
+    }
+    .login-footer a { color: var(--ember); }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+        </svg>
+        ThermoSmart
+      </div>
+
+      <h1>Sign in</h1>
+      <p class="sub">Enter your device credentials to continue.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="login-flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="card">
+        <form method="POST" action="">
+          {{ form.hidden_tag() }}
+
+          <div class="login-field">
+            <label for="{{ form.hardware_id.id }}">Hardware ID</label>
+            {{ form.hardware_id(class="", placeholder="e.g. AABB1234") }}
+            {% if form.hardware_id.errors %}
+              <div class="login-errors">{% for e in form.hardware_id.errors %}{{ e }}{% endfor %}</div>
+            {% endif %}
+          </div>
+
+          <div class="login-field">
+            <label for="{{ form.password.id }}">Password</label>
+            {{ form.password(class="", placeholder="••••••••") }}
+            {% if form.password.errors %}
+              <div class="login-errors">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn primary sq login-submit">Sign in</button>
+        </form>
+      </div>
+
+      <div class="login-footer">
+        New device? <a href="{{ url_for('auth.register_page') }}">Register here</a>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

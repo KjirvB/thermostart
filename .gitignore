@@ -6,3 +6,8 @@ venv
 __pycache__
 .backup-align-dev-*
 instance/
+
+# v2 frontend
+services/web/frontend/node_modules/
+services/web/thermostart/static/v2/
+flask_thermostart_dev.db

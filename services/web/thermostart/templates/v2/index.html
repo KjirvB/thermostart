@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" data-skin="paper">
+<head>
+  <meta charset="UTF-8">
+  <title>ThermoSmart</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=DotGothic16&family=VT323&display=swap" rel="stylesheet">
+  {% for href in v2_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='v2/' + href) }}">
+  {% endfor %}
+  <script>
+    window.__INITIAL_STATE__ = {{ initial_state|tojson }};
+    window.__DEVICE_ID__ = {{ device_id|tojson }};
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="{{ url_for('static', filename='v2/' + v2_entry) }}"></script>
+</body>
+</html>

@@ -524,6 +524,16 @@ def thermostat(device_id):
     if changed:
         device.ui_synced = False
         db.session.commit()
+        broadcast = {}
+        if "target_temperature" in data:
+            broadcast["target_temperature"] = device.target_temperature
+            broadcast["source"] = device.source
+        if "standard_week" in data:
+            broadcast["standard_week"] = device.standard_week
+        if "exceptions" in data:
+            broadcast["exceptions"] = device.exceptions
+        if broadcast:
+            emit("broadcast-thermostat", broadcast, namespace="/", to=device_id)
         return Response(response="OK", status=200)
 
     return Response(response="Nothing to update", status=200)
@@ -539,6 +549,7 @@ def thermostat_pause(device_id):
     device.source = Source.PAUSE.value
     device.ui_synced = False
     db.session.commit()
+    emit("broadcast-thermostat", {"source": device.source}, namespace="/", to=device_id)
     return Response(response="OK", status=200)
 
 
@@ -552,4 +563,5 @@ def thermostat_unpause(device_id):
     device.source = Source.STD_WEEK.value
     device.ui_synced = False
     db.session.commit()
+    emit("broadcast-thermostat", {"source": device.source}, namespace="/", to=device_id)
     return Response(response="OK", status=200)

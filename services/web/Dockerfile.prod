@@ -1,3 +1,16 @@
+##############
+# v2 BUNDLE  #
+##############
+
+# Build the React + Vite v2 UI. Output ends up at services/web/thermostart/static/v2/.
+FROM node:20-bookworm-slim AS frontend
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+COPY frontend/ ./
+RUN mkdir -p /out && npx vite build --outDir /out
+
+
 ###########
 # BUILDER #
 ###########
@@ -60,6 +73,9 @@ COPY ./entrypoint.sh $APP_HOME
 
 # copy project
 COPY . $APP_HOME
+
+# copy built v2 frontend bundle on top of the project tree
+COPY --from=frontend /out/ $APP_HOME/thermostart/static/v2/
 
 # chown all the files to the app user
 RUN chown -R app:app $APP_HOME

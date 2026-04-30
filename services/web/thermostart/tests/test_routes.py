@@ -81,6 +81,55 @@ class TestUserRoutesLoggedUser:
         assert b'href="/login?next=%2Faccount"' in response.data
 
 
+class TestUiSwitchCookie:
+    def setup_method(self):
+        from thermostart import db, fill_location_db
+        from thermostart.models import Device
+
+        self.app = create_app()
+        self.app.config.update(
+            {
+                "TESTING": True,
+                "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                "WTF_CSRF_ENABLED": False,
+            }
+        )
+        with self.app.app_context():
+            db.create_all()
+            fill_location_db(self.app)
+            device = Device(hardware_id="dev1", password="pwd")
+            device.location_id = 1
+            db.session.add(device)
+            db.session.commit()
+        self.client = self.app.test_client()
+        with self.client:
+            self.client.post("/login", data={"hardware_id": "dev1", "password": "pwd"})
+
+    def teardown_method(self):
+        from thermostart import db
+
+        with self.app.app_context():
+            db.drop_all()
+
+    def test_switch_to_classic_sets_cookie(self):
+        response = self.client.get("/ui/switch?to=classic")
+        assert response.status_code == 302
+        cookie = "; ".join(response.headers.getlist("Set-Cookie"))
+        assert "ui_version=classic" in cookie
+
+    def test_switch_to_v2_sets_cookie(self):
+        response = self.client.get("/ui/switch?to=v2")
+        assert response.status_code == 302
+        cookie = "; ".join(response.headers.getlist("Set-Cookie"))
+        assert "ui_version=v2" in cookie
+
+    def test_switch_with_invalid_target_falls_back_to_default(self):
+        response = self.client.get("/ui/switch?to=bogus")
+        assert response.status_code == 302
+        cookie = "; ".join(response.headers.getlist("Set-Cookie"))
+        assert "ui_version=v2" in cookie
+
+
 class TestThermostatModel:
     def setup_method(self):
         from thermostart import db, fill_location_db
