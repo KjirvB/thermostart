@@ -566,6 +566,9 @@ def thermostat(device_id):
     if "predefined_temperatures" in data:
         device.predefined_temperatures = data["predefined_temperatures"]
         changed = True
+    if "dhw_programs" in data:
+        device.dhw_programs = data["dhw_programs"]
+        changed = True
     if "outside_temperature" in data:
         device.outside_temperature = int(round(float(data["outside_temperature"]) * 10))
         changed = True

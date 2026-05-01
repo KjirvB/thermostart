@@ -122,6 +122,7 @@ const initialState = {
   log_retention_days: 0,
   // OpenTherm raw fields (whatever /thermostatmodel returns)
   ot: {},
+  dhwPrograms: {},
 };
 
 function reducer(state, action) {
@@ -156,6 +157,7 @@ function reducer(state, action) {
         log_opentherm: m.log_opentherm ?? false,
         log_retention_days: m.log_retention_days ?? 0,
         ot,
+        dhwPrograms: m.dhw_programs || {},
       };
     }
     case "patch":
@@ -302,6 +304,23 @@ export function useStore() {
       dispatch({ type: "patch", patch: { [key]: value } });
       try {
         await putSettings({ [key]: value });
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    async setPredefinedTemperature(key, tenths) {
+      const next = { ...stateRef.current.predefinedTemperatures, [key]: tenths };
+      dispatch({ type: "patch", patch: { predefinedTemperatures: next } });
+      try {
+        await putThermostat({ predefined_temperatures: next });
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    async setDhwPrograms(programs) {
+      dispatch({ type: "patch", patch: { dhwPrograms: programs } });
+      try {
+        await putThermostat({ dhw_programs: programs });
       } catch (e) {
         console.error(e);
       }

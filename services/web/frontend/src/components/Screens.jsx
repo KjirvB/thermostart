@@ -69,6 +69,81 @@ function makePlaceholderHistory() {
   return { target, room };
 }
 
+// ── Program Defaults ──
+
+const IcoDroplet = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 2c2 2.5 3 4.4 3 6a3 3 0 11-6 0c0-1.6 1-3.5 3-6z" />
+  </svg>
+);
+
+const IcoPot = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 2v3M8 2v3M11 2v3M3.5 6h9l-.6 7a1.5 1.5 0 01-1.5 1.4H5.6A1.5 1.5 0 014.1 13L3.5 6z" />
+  </svg>
+);
+
+function ProgramDefaults({ state, actions, t }) {
+  const showDhw = state.oo === 1 && (state.fw >= 20140825 || state.hw === 3);
+  const programs = Object.values(PROGRAMS).filter((p) => p.key !== "pause");
+  const rowCls = "pgm-row" + (showDhw ? " pgm-has-dhw" : "");
+
+  return (
+    <div>
+      <div className="section-h">
+        <h2>{t("schedule.programs.heading")} <em>{t("schedule.programs.heading_em")}</em></h2>
+        <span className="right">{t("schedule.programs.subtitle")}</span>
+      </div>
+      <div className="card">
+        <div className="pgm-table">
+          {programs.map((p) => {
+            const tenths = state.predefinedTemperatures[p.key] ?? p.temp;
+            const dhwOn = state.dhwPrograms[p.key] === 1;
+            const bump = (d) => actions.setPredefinedTemperature(p.key, Math.max(50, Math.min(300, tenths + d)));
+
+            return (
+              <div key={p.key} className={rowCls}>
+                <div className="pgm-name">
+                  <span className="sw" style={{ background: p.color }}></span>
+                  {t(p.tk)}
+                </div>
+                <div className="pgm-temp">
+                  <div className="stepper">
+                    <button onClick={() => bump(-5)}>−</button>
+                    <span className="v">{(tenths / 10).toFixed(1)}°</span>
+                    <button onClick={() => bump(+5)}>+</button>
+                  </div>
+                </div>
+                {showDhw && (
+                  <div className="pgm-dhw">
+                    <div className="seg dhw-seg">
+                      <button className={!dhwOn ? "on" : ""}
+                              onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 0 })}>
+                        <span className="pgm-btn-inner"><IcoDroplet />{t("schedule.dhw.saving")}</span>
+                      </button>
+                      <button className={dhwOn ? "on" : ""}
+                              onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 1 })}>
+                        <span className="pgm-btn-inner"><IcoPot />{t("schedule.dhw.maintain")}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {showDhw && (
+          <div className="pgm-foot">
+            <p><strong><IcoDroplet />{t("schedule.dhw.saving")}</strong> — {t("schedule.dhw.note.saving")}</p>
+            <p><strong><IcoPot />{t("schedule.dhw.maintain")}</strong> — {t("schedule.dhw.note.maintain")}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Overview ──
 
 export function Overview({ state, actions, t, onGoSchedule }) {
@@ -221,14 +296,17 @@ export function Schedule({ state, actions, t }) {
                 onClick={() => { setSelected(null); setErasing(false); }}>
           {t("schedule.chip.select")}
         </button>
-        {Object.values(PROGRAMS).filter((p) => p.key !== "pause").map((p) => (
-          <button key={p.key}
-                  className={"pchip" + (selected === p.key && !erasing ? " active" : "")}
-                  onClick={() => { setSelected(p.key); setErasing(false); }}>
-            <span className="sw" style={{ background: p.color }}></span>
-            {t(p.tk)}
-          </button>
-        ))}
+        {Object.values(PROGRAMS).filter((p) => p.key !== "pause").map((p) => {
+          const tenths = state.predefinedTemperatures[p.key] ?? p.temp;
+          return (
+            <button key={p.key}
+                    className={"pchip" + (selected === p.key && !erasing ? " active" : "")}
+                    onClick={() => { setSelected(p.key); setErasing(false); }}>
+              <span className="sw" style={{ background: p.color }}></span>
+              {t(p.tk)} <span style={{ opacity: 0.65 }}>{(tenths / 10).toFixed(1)}°</span>
+            </button>
+          );
+        })}
         <button className={"pchip erase" + (erasing ? " active" : "")}
                 onClick={() => { setErasing(!erasing); setSelected(null); }}>
           {t("schedule.chip.clear")}
@@ -257,6 +335,8 @@ export function Schedule({ state, actions, t }) {
           t={t}
           onClose={() => setEditing(null)} />
       )}
+
+      <ProgramDefaults state={state} actions={actions} t={t} />
     </div>
   );
 }
