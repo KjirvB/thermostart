@@ -532,12 +532,27 @@ export function Boiler({ state, t }) {
 export function Settings({ state, actions, t, themeMode, setThemeMode }) {
   const [hostInput, setHostInput] = useState("");
   const [portInput, setPortInput] = useState("");
+  const [retentionInput, setRetentionInput] = useState("0");
   // Initialize inputs once state loads
   useMemo(() => {
     setHostInput(state.host || "");
     setPortInput(String(state.port || ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.host, state.port]);
+  useMemo(() => {
+    setRetentionInput(String(state.log_retention_days ?? 0));
+  }, [state.log_retention_days]);
+
+  const saveRetentionDays = () => {
+    const parsed = Number.parseInt(retentionInput, 10);
+    if (Number.isNaN(parsed)) {
+      setRetentionInput(String(state.log_retention_days ?? 0));
+      return;
+    }
+    const next = Math.max(0, parsed);
+    setRetentionInput(String(next));
+    actions.setSetting("log_retention_days", next);
+  };
 
   return (
     <div>
@@ -635,6 +650,25 @@ export function Settings({ state, actions, t, themeMode, setThemeMode }) {
               <button className={!state.log_opentherm ? "on" : ""} onClick={() => actions.setSetting("log_opentherm", false)}>{t("settings.ot_logging.off")}</button>
             </div>
             {state.log_opentherm && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={retentionInput}
+                  onChange={(e) => setRetentionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRetentionDays();
+                  }}
+                  style={{ width: 96 }}
+                />
+                <button className="btn ghost sq" onClick={saveRetentionDays}>{t("settings.save")}</button>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)" }}>
+                  {state.log_retention_days === 0 ? t("settings.ot_logging.forever") : `${state.log_retention_days}d`}
+                </span>
+              </div>
+            )}
+            {false && state.log_opentherm && (
               <div className="stepper">
                 <button onClick={() => actions.setSetting("log_retention_days", Math.max(0, (state.log_retention_days || 0) - 1))}>−</button>
                 <span className="v">{state.log_retention_days === 0 ? t("settings.ot_logging.forever") : `${state.log_retention_days}d`}</span>
