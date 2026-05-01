@@ -212,6 +212,7 @@ export function useStore() {
         if (d.target_temperature != null) patch.targetC = d.target_temperature / 10;
         if (d.room_temperature != null) patch.roomC = d.room_temperature / 10;
         if (d.outside_temperature != null) patch.outsideC = d.outside_temperature / 10;
+        if (d.oo != null) patch.oo = d.oo;
         if (d.source != null) {
           patch.source = d.source;
           nextState.source = d.source;
@@ -221,6 +222,13 @@ export function useStore() {
           nextState.week = patch.week;
         }
         if (d.exceptions != null) patch.exceptions = d.exceptions;
+        const otPatch = {};
+        for (const [k, v] of Object.entries(d)) {
+          if (k.startsWith("ot") || k.startsWith("parsed_ot")) otPatch[k] = v;
+        }
+        if (Object.keys(otPatch).length) {
+          patch.ot = { ...stateRef.current.ot, ...otPatch };
+        }
         if (d.target_temperature == null && (d.source != null || d.standard_week != null)) {
           const c = computePresetTargetC(nextState, nextState.source);
           if (c != null) patch.targetC = c;

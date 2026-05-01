@@ -84,6 +84,43 @@ def _opentherm_payload(device, include_raw):
     return ot
 
 
+def _boiler_realtime_patch(device):
+    """Broadcast shape used by the v2 UI to keep Boiler values live."""
+    otparams = [
+        "ot0",
+        "ot1",
+        "ot3",
+        "ot17",
+        "ot18",
+        "ot19",
+        "ot25",
+        "ot26",
+        "ot27",
+        "ot28",
+        "ot34",
+        "ot56",
+        "ot125",
+    ]
+    patch = {"oo": device.oo}
+    for param in otparams:
+        patch[param] = getattr(device, param)
+    patch.update(
+        parsed_ot0=interpret_status(device.ot0) if device.ot0 is not None else None,
+        parsed_ot1=parse_f8_8(device.ot1) if device.ot1 is not None else None,
+        parsed_ot17=parse_f8_8(device.ot17) if device.ot17 is not None else None,
+        parsed_ot18=parse_f8_8(device.ot18) if device.ot18 is not None else None,
+        parsed_ot19=parse_f8_8(device.ot19) if device.ot19 is not None else None,
+        parsed_ot25=parse_f8_8(device.ot25) if device.ot25 is not None else None,
+        parsed_ot26=parse_f8_8(device.ot26) if device.ot26 is not None else None,
+        parsed_ot27=parse_f8_8(device.ot27) if device.ot27 is not None else None,
+        parsed_ot28=parse_f8_8(device.ot28) if device.ot28 is not None else None,
+        parsed_ot34=parse_f8_8(device.ot34) if device.ot34 is not None else None,
+        parsed_ot56=parse_f8_8(device.ot56) if device.ot56 is not None else None,
+        parsed_ot125=parse_f8_8(device.ot125) if device.ot125 is not None else None,
+    )
+    return patch
+
+
 @ts.route("/fw")
 @ts.route("/fw/hcu")
 def firmware_update():
@@ -272,11 +309,14 @@ def api():
         if td != device.td:
             device.td = td
             db.session.commit()
+    boiler_changed = False
+
     if oo := tsreq.get("oo"):
         oo = int(oo[0])
         if oo != device.oo:
             device.oo = oo
             db.session.commit()
+            boiler_changed = True
 
     otparams = [
         "ot0",
@@ -302,6 +342,15 @@ def api():
                 otchanged = True
     if otchanged:
         db.session.commit()
+        boiler_changed = True
+
+    if boiler_changed:
+        emit(
+            "broadcast-thermostat",
+            _boiler_realtime_patch(device),
+            namespace="/",
+            to=hardware_id,
+        )
 
     hw = int(tsreq["hw"][0])
     if hw != device.hw:
