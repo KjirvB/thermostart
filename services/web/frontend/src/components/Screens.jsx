@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dial } from "./Dial.jsx";
 import { DayClock, RibbonEditor, BlockEditDialog } from "./Schedule.jsx";
 import { PROGRAMS, slotToHHMM, nowDayIdx, nowSlot } from "../constants.js";
@@ -6,70 +6,133 @@ import {
   SRC_MANUAL, SRC_PAUSE, SRC_SERVER, SRC_STD_WEEK, SRC_EXCEPTION,
   excArrToDate, getCurrentMode, getTodayExceptionSegments,
 } from "../store.js";
-import { downloadFirmware } from "../api.js";
+import { downloadFirmware, fetchHistory } from "../api.js";
 
-// ── History graph (placeholder data — real history wiring is a follow-up) ──
+// ── History graph ──
 
-function HistoryGraph({ data, height = 180 }) {
-  const w = 800, h = height, pad = { l: 30, r: 14, t: 14, b: 22 };
+function buildXTicks(range, startTs, bucketSeconds, pointCount, locale) {
+  const totalSeconds = bucketSeconds * pointCount;
+  const fracFor = (ts) => (ts - startTs) / totalSeconds;
+  if (range === "24h") {
+    return [0, 6, 12, 18, 24].map((hh) => ({ frac: hh / 24, label: String(hh).padStart(2, "0") }));
+  }
+  if (range === "7d") {
+    const fmt = new Intl.DateTimeFormat(locale || "en-GB", { weekday: "short" });
+    const ticks = [];
+    const startDay = Math.ceil(startTs / 86400) * 86400;
+    for (let t = startDay; t <= startTs + totalSeconds; t += 86400) {
+      const frac = fracFor(t);
+      if (frac < 0 || frac > 1) continue;
+      ticks.push({ frac, label: fmt.format(new Date(t * 1000)) });
+    }
+    return ticks;
+  }
+  // 30d
+  const fmt = new Intl.DateTimeFormat(locale || "en-GB", { day: "numeric", month: "short" });
+  const ticks = [];
+  const weekSec = 7 * 86400;
+  const firstWeek = Math.ceil(startTs / weekSec) * weekSec;
+  for (let t = firstWeek; t <= startTs + totalSeconds; t += weekSec) {
+    const frac = fracFor(t);
+    if (frac < 0 || frac > 1) continue;
+    ticks.push({ frac, label: fmt.format(new Date(t * 1000)) });
+  }
+  return ticks;
+}
+
+function HistoryGraph({ data, range, locale, height = 180 }) {
+  const wrapRef = useRef(null);
+  const [w, setW] = useState(800);
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const cw = Math.max(200, Math.round(entry.contentRect.width));
+      setW(cw);
+    });
+    ro.observe(wrapRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const h = height, pad = { l: 30, r: 14, t: 14, b: 22 };
   const ihw = w - pad.l - pad.r;
   const ihh = h - pad.t - pad.b;
-  const min = Math.min(...data.target, ...data.room) - 1;
-  const max = Math.max(...data.target, ...data.room) + 1;
-  const range = max - min || 1;
 
   const N = data.target.length;
-  const xAt = (i) => pad.l + (i / (N - 1)) * ihw;
-  const yAt = (v) => pad.t + (1 - (v - min) / range) * ihh;
+  const present = [...data.target, ...data.room].filter((v) => v != null);
+  const min = (present.length ? Math.min(...present) : 15) - 1;
+  const max = (present.length ? Math.max(...present) : 22) + 1;
+  const yRange = max - min || 1;
 
-  const pathFor = (arr) => arr.map((v, i) => i === 0 ? `M ${xAt(i)} ${yAt(v)}` : `L ${xAt(i)} ${yAt(v)}`).join(" ");
-  const fillFor = (arr) => `${pathFor(arr)} L ${xAt(N - 1)} ${pad.t + ihh} L ${xAt(0)} ${pad.t + ihh} Z`;
+  const xAt = (i) => pad.l + (N <= 1 ? 0 : (i / (N - 1)) * ihw);
+  const yAt = (v) => pad.t + (1 - (v - min) / yRange) * ihh;
+
+  const pathFor = (arr) => {
+    let d = "", penDown = false;
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i];
+      if (v == null) { penDown = false; continue; }
+      d += penDown ? ` L ${xAt(i)} ${yAt(v)}` : `${d ? " " : ""}M ${xAt(i)} ${yAt(v)}`;
+      penDown = true;
+    }
+    return d;
+  };
+
+  const fillFor = (arr) => {
+    let d = "", segStart = -1;
+    for (let i = 0; i < arr.length; i++) {
+      const v = arr[i];
+      if (v == null) {
+        if (segStart >= 0) {
+          d += ` L ${xAt(i - 1)} ${pad.t + ihh} L ${xAt(segStart)} ${pad.t + ihh} Z`;
+          segStart = -1;
+        }
+        continue;
+      }
+      if (segStart < 0) {
+        d += `${d ? " " : ""}M ${xAt(i)} ${yAt(v)}`;
+        segStart = i;
+      } else {
+        d += ` L ${xAt(i)} ${yAt(v)}`;
+      }
+    }
+    if (segStart >= 0) {
+      d += ` L ${xAt(arr.length - 1)} ${pad.t + ihh} L ${xAt(segStart)} ${pad.t + ihh} Z`;
+    }
+    return d;
+  };
 
   const yTicks = [];
   for (let v = Math.ceil(min); v <= Math.floor(max); v++) {
     if (Math.floor(max) - Math.ceil(min) > 6 && v % 2 !== 0) continue;
     yTicks.push(v);
   }
-  const xTicks = [0, 6, 12, 18, 24];
+
+  const xTicks = buildXTicks(range, data.start_ts, data.bucket_seconds, N, locale);
 
   return (
-    <svg className="history" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="histFillTarget" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--ember)" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="var(--ember)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {yTicks.map((v) => (
-        <g key={v}>
-          <line className="grid-line" x1={pad.l} y1={yAt(v)} x2={w - pad.r} y2={yAt(v)} />
-          <text className="axis" x={pad.l - 6} y={yAt(v) + 3} textAnchor="end">{v}°</text>
-        </g>
-      ))}
-      {xTicks.map((hh) => (
-        <text key={hh} className="axis" x={pad.l + (hh / 24) * ihw} y={height - 4} textAnchor="middle">{String(hh).padStart(2, "0")}</text>
-      ))}
-      <path d={fillFor(data.target)} fill="url(#histFillTarget)" />
-      <path d={pathFor(data.target)} fill="none" stroke="var(--ember)" strokeWidth="1.8" />
-      <path d={pathFor(data.room)} fill="none" stroke="var(--ink-1)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
-    </svg>
+    <div ref={wrapRef} style={{ width: "100%" }}>
+      <svg className="history" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id="histFillTarget" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--ember)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="var(--ember)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {yTicks.map((v) => (
+          <g key={v}>
+            <line className="grid-line" x1={pad.l} y1={yAt(v)} x2={w - pad.r} y2={yAt(v)} />
+            <text className="axis" x={pad.l - 6} y={yAt(v) + 3} textAnchor="end">{v}°</text>
+          </g>
+        ))}
+        {xTicks.map((tk, i) => (
+          <text key={i} className="axis" x={pad.l + tk.frac * ihw} y={height - 4} textAnchor="middle">{tk.label}</text>
+        ))}
+        <path d={fillFor(data.target)} fill="url(#histFillTarget)" />
+        <path d={pathFor(data.target)} fill="none" stroke="var(--ember)" strokeWidth="1.8" />
+        <path d={pathFor(data.room)} fill="none" stroke="var(--ink-1)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
+      </svg>
+    </div>
   );
-}
-
-function makePlaceholderHistory() {
-  const target = [], room = [];
-  for (let i = 0; i < 96; i++) {
-    const frac = i / 96;
-    let tg;
-    if (frac < 0.25) tg = 18;
-    else if (frac < 0.33) tg = 21;
-    else if (frac < 0.70) tg = 16.5;
-    else if (frac < 0.92) tg = 21;
-    else tg = 18;
-    target.push(tg);
-    room.push(tg + Math.sin(frac * Math.PI * 6) * 0.4 - 0.3);
-  }
-  return { target, room };
 }
 
 // ── Program Defaults ──
@@ -204,8 +267,22 @@ export function Overview({ state, actions, t, onGoSchedule, onGoExceptions }) {
         ? t((PROGRAMS[mode.pgm] || PROGRAMS.home).tk)
         : t((PROGRAMS[mode.pgm] || PROGRAMS.home).tk);
 
-  const history = useMemo(() => makePlaceholderHistory(), []);
   const [range, setRange] = useState("24h");
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryError(false);
+    fetchHistory(range)
+      .then((d) => { if (!cancelled) { setHistory(d); setHistoryLoading(false); } })
+      .catch(() => { if (!cancelled) { setHistory(null); setHistoryError(true); setHistoryLoading(false); } });
+    return () => { cancelled = true; };
+  }, [range]);
+
+  const historyEmpty = history && history.target.every((v) => v == null) && history.room.every((v) => v == null);
 
   return (
     <div>
@@ -291,12 +368,26 @@ export function Overview({ state, actions, t, onGoSchedule, onGoExceptions }) {
         </span>
       </div>
       <div className="card">
-        <div style={{
-          display: "inline-block",
-          fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
-          color: "var(--ink-3)", border: "1px dashed var(--line)", padding: "2px 8px", borderRadius: 4, marginBottom: 8,
-        }}>{t("overview.history.sample")}</div>
-        <HistoryGraph data={history} />
+        {historyError ? (
+          <div className="empty-state" style={{
+            padding: "40px 12px", textAlign: "center",
+            fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.04em",
+          }}>{t("overview.history.error")}</div>
+        ) : !history ? (
+          <div style={{ padding: "40px 12px", textAlign: "center",
+            fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.04em" }}>
+            {t("overview.history.loading")}
+          </div>
+        ) : historyEmpty ? (
+          <div className="empty-state" style={{
+            padding: "40px 12px", textAlign: "center",
+            fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.04em",
+          }}>{t("overview.history.empty")}</div>
+        ) : (
+          <div style={{ opacity: historyLoading ? 0.5 : 1, transition: "opacity 120ms" }}>
+            <HistoryGraph data={history} range={range} locale={state.locale} />
+          </div>
+        )}
         <div style={{ marginTop: 10, display: "flex", gap: 16, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)", letterSpacing: "0.04em" }}>
           <span><span style={{ display: "inline-block", width: 10, height: 2, background: "var(--ember)", verticalAlign: "middle", marginRight: 6 }}></span>{t("overview.legend.target")}</span>
           <span><span style={{ display: "inline-block", width: 10, height: 1, borderTop: "1px dashed var(--ink-1)", verticalAlign: "middle", marginRight: 6 }}></span>{t("overview.legend.room")}</span>

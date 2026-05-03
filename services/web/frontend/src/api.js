@@ -31,6 +31,10 @@ export function fetchModel() {
   return send("/thermostatmodel", { method: "GET" });
 }
 
+export function fetchHistory(range) {
+  return send(`/ui/v2/api/history?range=${encodeURIComponent(range)}`, { method: "GET" });
+}
+
 export function putThermostat(patch) {
   return send(`/thermostat/${deviceId()}`, {
     method: "PUT",
