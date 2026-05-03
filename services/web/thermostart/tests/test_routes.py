@@ -555,9 +555,7 @@ class TestV2HistoryRoute:
             db.session.commit()
         self.client = self.app.test_client()
         with self.client:
-            self.client.post(
-                "/login", data={"hardware_id": "dev1", "password": "pwd"}
-            )
+            self.client.post("/login", data={"hardware_id": "dev1", "password": "pwd"})
 
     def teardown_method(self):
         from thermostart import db

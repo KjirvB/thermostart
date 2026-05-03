@@ -26,7 +26,6 @@ from thermostart.ts.utils import (
     parse_f8_8,
 )
 
-
 HISTORY_RANGES = {
     # range_key -> (window_seconds, bucket_seconds, point_count)
     "24h": (86400, 900, 96),
