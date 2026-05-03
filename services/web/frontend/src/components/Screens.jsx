@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import { Dial } from "./Dial.jsx";
 import { DayClock, RibbonEditor, BlockEditDialog } from "./Schedule.jsx";
 import { PROGRAMS, slotToHHMM, nowDayIdx, nowSlot } from "../constants.js";
-import { SRC_MANUAL, SRC_PAUSE, SRC_SERVER, SRC_STD_WEEK, SRC_EXCEPTION } from "../store.js";
+import {
+  SRC_MANUAL, SRC_PAUSE, SRC_SERVER, SRC_STD_WEEK, SRC_EXCEPTION,
+  excArrToDate, getCurrentMode, getTodayExceptionSegments,
+} from "../store.js";
 import { downloadFirmware } from "../api.js";
 
 // ── History graph (placeholder data — real history wiring is a follow-up) ──
@@ -169,17 +172,37 @@ function ProgramDefaults({ state, actions, t }) {
 
 // ── Overview ──
 
-export function Overview({ state, actions, t, onGoSchedule }) {
+export function Overview({ state, actions, t, onGoSchedule, onGoExceptions }) {
   const today = nowDayIdx();
   const slot = nowSlot();
   const todayBlocks = state.week[today] || [];
-  const active = todayBlocks.find((b) => slot >= b.start && slot < b.end);
-  const next = todayBlocks.find((b) => b.start > slot);
-  const paused = state.source === SRC_PAUSE;
-  const manual = state.source === SRC_MANUAL || state.source === SRC_SERVER;
+  const now = new Date();
+  const mode = getCurrentMode(state, now);
+  const todayExceptionSegments = useMemo(
+    () => getTodayExceptionSegments(state.exceptions, now),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.exceptions, today, slot]
+  );
+  const paused = mode.kind === "pause";
+  const manual = mode.kind === "manual";
+  const isException = mode.kind === "exception";
   const [dragTarget, setDragTarget] = useState(null);
-  const activePgm = paused ? "pause" : active ? active.pgm : "home";
-  const pgm = PROGRAMS[activePgm] || PROGRAMS.home;
+
+  // Pill swatch + label
+  const pillColor = paused
+    ? "var(--ink-2)"
+    : manual
+      ? "var(--ink-2)"
+      : isException
+        ? (PROGRAMS[mode.pgm] || PROGRAMS.home).color
+        : (PROGRAMS[mode.pgm] || PROGRAMS.home).color;
+  const pillLabel = paused
+    ? t("overview.mode.paused")
+    : manual
+      ? t("overview.mode.manual")
+      : isException
+        ? t((PROGRAMS[mode.pgm] || PROGRAMS.home).tk)
+        : t((PROGRAMS[mode.pgm] || PROGRAMS.home).tk);
 
   const history = useMemo(() => makePlaceholderHistory(), []);
   const [range, setRange] = useState("24h");
@@ -194,11 +217,24 @@ export function Overview({ state, actions, t, onGoSchedule }) {
       <div className="hero">
         <div className="context-line">
           <span className="pill">
-            <span className="sw" style={{ background: manual ? "var(--ink-2)" : pgm.color }}></span>
-            {manual ? t("overview.mode.manual") : t(pgm.tk)}
+            <span className="sw" style={{ background: pillColor }}></span>
+            {pillLabel}
+            {isException && (
+              <em style={{ marginLeft: 6, fontStyle: "normal", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-3)" }}>
+                · {t("overview.mode.exception_badge")}
+              </em>
+            )}
           </span>
-          {!paused && next && (
-            <span>{t("overview.next_at")} <strong style={{ color: "var(--ink-1)" }}>{slotToHHMM(next.start)}</strong></span>
+          {isException && (
+            <span>{t("overview.exception.until")} <strong style={{ color: "var(--ink-1)" }}>{mode.untilHHMM}</strong></span>
+          )}
+          {(paused || manual) && mode.exception && (
+            <span style={{ color: "var(--ink-3)" }}>
+              {t("overview.exception.overridden", { until: mode.untilHHMM })}
+            </span>
+          )}
+          {mode.kind === "schedule" && mode.nextStartHHMM && (
+            <span>{t("overview.next_at")} <strong style={{ color: "var(--ink-1)" }}>{mode.nextStartHHMM}</strong></span>
           )}
         </div>
 
@@ -236,6 +272,8 @@ export function Overview({ state, actions, t, onGoSchedule }) {
             <>{t("overview.hint.paused")} <button className="link" onClick={() => actions.unpause()}>{t("overview.hint.paused_link")}</button>.</>
           ) : manual ? (
             <>{t("overview.hint.manual")} <button className="link" onClick={() => actions.unpause()}>{t("overview.hint.manual_link")}</button>.</>
+          ) : isException ? (
+            <>{t("overview.hint.exception", { until: mode.untilHHMM })} <button className="link" onClick={onGoExceptions}>{t("overview.hint.exception_link")}</button>.</>
           ) : (
             <>{t("overview.mode.schedule")}. {t("overview.hint.schedule")}</>
           )}
@@ -271,7 +309,7 @@ export function Overview({ state, actions, t, onGoSchedule }) {
       </div>
       <div className="card">
         <div className="today-glance">
-          <DayClock blocks={todayBlocks} currentSlot={slot} />
+          <DayClock blocks={todayBlocks} currentSlot={slot} exceptions={todayExceptionSegments} />
           <div className="today-list">
             {todayBlocks.map((b, i) => {
               const isNow = slot >= b.start && slot < b.end;
@@ -382,11 +420,6 @@ function localToExcArr(s) {
   return [parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), parseInt(m[4], 10), parseInt(m[5], 10)];
 }
 
-function excArrToDate(arr) {
-  const [Y, M0, D, h, m] = arr;
-  return new Date(Y, M0, D, h, m);
-}
-
 function formatExceptionWhen(exc, locale) {
   if (!Array.isArray(exc.start)) return "—";
   const fmt = (a) => excArrToDate(a).toLocaleString(locale || "en-GB", {
@@ -472,8 +505,9 @@ export function Exceptions({ state, actions, t }) {
   }, [state.exceptions]);
 
   const now = new Date();
-  const upcoming = sorted.filter((e) => excArrToDate(e.end) >= now);
-  const past = sorted.filter((e) => excArrToDate(e.end) < now);
+  const activeNow = sorted.filter((e) => excArrToDate(e.start) <= now && excArrToDate(e.end) > now);
+  const upcoming = sorted.filter((e) => excArrToDate(e.start) > now);
+  const past = sorted.filter((e) => excArrToDate(e.end) <= now);
 
   const saveException = (exc) => {
     const list = (state.exceptions || []).slice();
@@ -494,14 +528,32 @@ export function Exceptions({ state, actions, t }) {
     setEditing(null);
   };
 
-  const Row = ({ e }) => {
+  const endNowException = (i) => {
+    const list = (state.exceptions || []).slice();
+    const n = new Date();
+    list[i] = {
+      ...list[i],
+      end: [n.getFullYear(), n.getMonth(), n.getDate(), n.getHours(), n.getMinutes()],
+    };
+    actions.setExceptions(list);
+  };
+
+  const Row = ({ e, active }) => {
     const p = PROGRAMS[e.temperature] || PROGRAMS.home;
     return (
-      <div className="except" onClick={() => setEditing(e)} style={{ cursor: "pointer" }}>
+      <div className={"except" + (active ? " active-now" : "")} onClick={() => setEditing(e)} style={{ cursor: "pointer" }}>
         <div className="when">{formatExceptionWhen(e, state.locale)}</div>
         <div className="what">
           <span className="swatch" style={{ background: p.color }}></span>
           <span className="pname">{t(p.tk)}</span>
+          {active && (
+            <button
+              className="btn ghost sq"
+              style={{ marginLeft: 12 }}
+              onClick={(ev) => { ev.stopPropagation(); endNowException(e._i); }}>
+              {t("exceptions.end_now")}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -528,6 +580,14 @@ export function Exceptions({ state, actions, t }) {
         </div>
       ) : (
         <>
+          {activeNow.length > 0 && (
+            <>
+              <div className="section-h"><h2>{t("exceptions.active_now")}</h2></div>
+              <div className="except-list">
+                {activeNow.map((e) => <Row key={e._i} e={e} active />)}
+              </div>
+            </>
+          )}
           {upcoming.length > 0 && (
             <>
               <div className="section-h"><h2>{t("exceptions.upcoming")}</h2></div>

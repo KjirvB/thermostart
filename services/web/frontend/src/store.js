@@ -13,7 +13,7 @@ import {
   putSettings,
 } from "./api.js";
 import { BOOTSTRAP } from "./bootstrap.js";
-import { nowDayIdx, nowSlot } from "./constants.js";
+import { nowDayIdx, nowSlot, slotToHHMM } from "./constants.js";
 
 // Source enum mirrors thermostart.ts.utils.Source (ts/utils.py).
 export const SRC_CRASH = 0;
@@ -71,6 +71,100 @@ export function weekToTransitions(week) {
     }
   }
   return out;
+}
+
+// ── exception helpers (shared between Overview, DayClock overlay, and Exceptions page)
+
+// JS Date handles hour=24 as 00:00 of the next day, matching backend's end[3]==24 convention.
+export function excArrToDate(arr) {
+  if (!Array.isArray(arr)) return null;
+  const [Y, M0, D, h, m] = arr;
+  return new Date(Y, M0, D, h, m);
+}
+
+export function findActiveException(exceptions, now) {
+  if (!Array.isArray(exceptions)) return null;
+  for (const exc of exceptions) {
+    const s = excArrToDate(exc.start);
+    const e = excArrToDate(exc.end);
+    if (s && e && s <= now && now < e) return exc;
+  }
+  return null;
+}
+
+// Returns segments of `exceptions` that overlap today, clipped to [00:00, 24:00).
+// Slots are 15-min indices in [0, 96]. isActive = segment covers `now`.
+export function getTodayExceptionSegments(exceptions, now) {
+  if (!Array.isArray(exceptions)) return [];
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0);
+  const out = [];
+  for (const exc of exceptions) {
+    const s = excArrToDate(exc.start);
+    const e = excArrToDate(exc.end);
+    if (!s || !e) continue;
+    if (e <= dayStart || s >= dayEnd) continue;
+    const cs = s < dayStart ? dayStart : s;
+    const ce = e > dayEnd ? dayEnd : e;
+    const startSlot = Math.floor((cs - dayStart) / (15 * 60 * 1000));
+    let endSlot = Math.ceil((ce - dayStart) / (15 * 60 * 1000));
+    if (endSlot > 96) endSlot = 96;
+    if (startSlot >= endSlot) continue;
+    out.push({
+      startSlot,
+      endSlot,
+      pgm: exc.temperature,
+      isActive: s <= now && now < e,
+      exception: exc,
+    });
+  }
+  return out;
+}
+
+// Format the end time of an active exception as "HH:MM", returning "24:00" when the
+// exception runs past today's midnight.
+function formatExceptionUntil(exception, now) {
+  const e = excArrToDate(exception.end);
+  if (!e) return null;
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0);
+  if (e >= dayEnd) return "24:00";
+  return `${String(e.getHours()).padStart(2, "0")}:${String(e.getMinutes()).padStart(2, "0")}`;
+}
+
+// Resolves the displayed mode given firmware priority: PAUSE > MANUAL/SERVER > active EXCEPTION > STD_WEEK.
+// MANUAL/PAUSE include the exception as shadow info when one is also active (firmware-confirmed: manual wins).
+export function getCurrentMode(state, now) {
+  const source = state.source;
+  const exception = findActiveException(state.exceptions, now);
+  const untilHHMM = exception ? formatExceptionUntil(exception, now) : null;
+
+  if (source === SRC_PAUSE) {
+    return { kind: "pause", exception, untilHHMM };
+  }
+  if (source === SRC_MANUAL || source === SRC_SERVER) {
+    return { kind: "manual", targetC: state.targetC, exception, untilHHMM };
+  }
+  if (exception) {
+    const todayBlocks = state.week[nowDayIdx()] || [];
+    const sl = nowSlot();
+    const back = todayBlocks.find((b) => sl >= b.start && sl < b.end);
+    return {
+      kind: "exception",
+      exception,
+      pgm: exception.temperature,
+      untilHHMM,
+      scheduleBackdrop: back ? back.pgm : null,
+    };
+  }
+  const todayBlocks = state.week[nowDayIdx()] || [];
+  const sl = nowSlot();
+  const active = todayBlocks.find((b) => sl >= b.start && sl < b.end);
+  const next = todayBlocks.find((b) => b.start > sl);
+  return {
+    kind: "schedule",
+    pgm: active ? active.pgm : "home",
+    nextStartHHMM: next ? slotToHHMM(next.start) : null,
+  };
 }
 
 // Computes the targetC implied by a source change, when the broadcast did not carry an explicit

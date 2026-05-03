@@ -27,7 +27,7 @@ function fmtRange(a, b) {
   return `${slotToHHMM(a)} – ${slotToHHMM(b)} · ${durStr.trim()}`;
 }
 
-export function DayClock({ blocks, currentSlot }) {
+export function DayClock({ blocks, currentSlot, exceptions = [] }) {
   const SIZE = 180;
   const CX = SIZE / 2, CY = SIZE / 2;
   const R_OUT = 84, R_IN = 56;
@@ -35,6 +35,12 @@ export function DayClock({ blocks, currentSlot }) {
   return (
     <div className="dayclock">
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`}>
+        <defs>
+          <pattern id="excStripe" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="currentColor" opacity="0.25" />
+            <rect width="3" height="6" fill="currentColor" />
+          </pattern>
+        </defs>
         <circle cx={CX} cy={CY} r={(R_OUT + R_IN) / 2} fill="none" stroke="var(--bg-2)" strokeWidth={R_OUT - R_IN} />
         {blocks.map((b, i) => {
           const a0 = slotToAngle(b.start);
@@ -42,6 +48,18 @@ export function DayClock({ blocks, currentSlot }) {
           return (
             <path key={i} d={donutSeg(CX, CY, R_OUT, R_IN, a0, a1)}
                   fill={programColor(b.pgm)} opacity="0.95" />
+          );
+        })}
+        {exceptions.map((seg, i) => {
+          const a0 = slotToAngle(seg.startSlot);
+          const a1 = slotToAngle(seg.endSlot === 96 ? 95.999 : seg.endSlot);
+          return (
+            <path key={"x" + i} d={donutSeg(CX, CY, R_OUT, R_IN, a0, a1)}
+                  fill="url(#excStripe)"
+                  color={programColor(seg.pgm)}
+                  stroke={seg.isActive ? "var(--ink-0)" : "none"}
+                  strokeWidth={seg.isActive ? 1.5 : 0}
+                  opacity={seg.isActive ? 1 : 0.7} />
           );
         })}
         {[0, 6, 12, 18].map(h => {

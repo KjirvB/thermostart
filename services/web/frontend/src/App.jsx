@@ -42,7 +42,7 @@ export default function App() {
   }
 
   const screens = {
-    overview:   <Overview   state={state} actions={actions} t={t} onGoSchedule={() => setRoute("schedule")} />,
+    overview:   <Overview   state={state} actions={actions} t={t} onGoSchedule={() => setRoute("schedule")} onGoExceptions={() => setRoute("exceptions")} />,
     schedule:   <Schedule   state={state} actions={actions} t={t} />,
     exceptions: <Exceptions state={state} actions={actions} t={t} />,
     boiler:     <Boiler     state={state} t={t} />,
