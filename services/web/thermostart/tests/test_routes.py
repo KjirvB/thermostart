@@ -384,6 +384,11 @@ class TestPublicThermostatApi:
         from thermostart import db
         from thermostart.models import Device
 
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            device.cal_synced = True
+            db.session.commit()
+
         response = self.client.put(
             "/thermostat/dev1",
             json={"dhw_programs": {"home": 1, "comfort": 0}},
@@ -393,7 +398,39 @@ class TestPublicThermostatApi:
         with self.app.app_context():
             device = db.session.get(Device, "dev1")
             assert device.dhw_programs == {"home": 1, "comfort": 0}
+            assert device.cal_synced is False
             assert device.ui_synced is False
+
+    def test_calendar_payload_includes_dhw_program_bits(self):
+        from thermostart import db
+        from thermostart.models import Device
+        from thermostart.ts.routes import _calendar_payload
+
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            device.standard_week = [
+                {"start": [0, 6, 30], "temperature": "home"},
+                {"start": [1, 8, 0], "temperature": "not_home"},
+            ]
+            device.exceptions = [
+                {
+                    "start": [2026, 4, 30, 12, 0],
+                    "end": [2026, 4, 30, 14, 0],
+                    "temperature": "comfort",
+                }
+            ]
+            device.predefined_temperatures = {
+                "home": 180,
+                "not_home": 150,
+                "comfort": 215,
+            }
+            device.dhw_programs = {"home": 1, "not_home": 0, "comfort": "1"}
+
+            payload = _calendar_payload(device)
+
+        assert "s106301801" in payload
+        assert "s208001500" in payload
+        assert payload.endswith("2151X")
 
     def test_pause_and_unpause(self):
         from thermostart import db

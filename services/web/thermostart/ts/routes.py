@@ -121,6 +121,70 @@ def _boiler_realtime_patch(device):
     return patch
 
 
+def _dhw_mode_for_preset(device, preset):
+    dhw_programs = device.dhw_programs or {}
+    if not isinstance(dhw_programs, dict):
+        return 0
+
+    value = dhw_programs.get(preset, 0)
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in ("true", "yes", "on"):
+            return 1
+        if value in ("false", "no", "off", ""):
+            return 0
+
+    try:
+        return 1 if int(value) else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _calendar_payload(device):
+    std_week = ""
+    for block in device.standard_week:
+        preset = block["temperature"]
+        std_week += "s{:01d}{:02d}{:02d}{:03d}{:01d}".format(
+            block["start"][0] + 1,
+            block["start"][1],
+            block["start"][2],
+            device.predefined_temperatures[preset],
+            _dhw_mode_for_preset(device, preset),
+        )
+
+    exc_week = ""
+    for block in device.exceptions:
+        preset = block["temperature"]
+        start = datetime(
+            block["start"][0],
+            block["start"][1] + 1,
+            block["start"][2],
+            0,
+            0,
+            tzinfo=timezone(timedelta(seconds=-time.timezone)),
+        )
+        end = datetime(
+            block["end"][0],
+            block["end"][1] + 1,
+            block["end"][2],
+            0,
+            0,
+            tzinfo=timezone(timedelta(seconds=-time.timezone)),
+        )
+        start = start + timedelta(hours=block["start"][3], minutes=block["start"][4])
+        end = end + timedelta(hours=block["end"][3], minutes=block["end"][4])
+        start = int(start.astimezone(timezone.utc).timestamp())
+        end = int(end.astimezone(timezone.utc).timestamp())
+        exc_week += "x{:08X}{:08X}{:03d}{:01d}X".format(
+            start,
+            end,
+            device.predefined_temperatures[preset],
+            _dhw_mode_for_preset(device, preset),
+        )
+
+    return std_week + exc_week
+
+
 @ts.route("/fw")
 @ts.route("/fw/hcu")
 def firmware_update():
@@ -238,47 +302,9 @@ def api():
     xml = "<ITHERMOSTAT>"
     if device.cal_synced is False:
         xml += "<CAL>"
-        std_week = ""
-        for block in device.standard_week:
-            std_week += "s{:01d}{:02d}{:02d}{:03d}{:01d}".format(
-                block["start"][0] + 1,
-                block["start"][1],
-                block["start"][2],
-                device.predefined_temperatures[block["temperature"]],
-                0,
-            )
-
-        exc_week = ""
-        for block in device.exceptions:
-            start = datetime(
-                block["start"][0],
-                block["start"][1] + 1,
-                block["start"][2],
-                0,
-                0,
-                tzinfo=timezone(timedelta(seconds=-time.timezone)),
-            )
-            end = datetime(
-                block["end"][0],
-                block["end"][1] + 1,
-                block["end"][2],
-                0,
-                0,
-                tzinfo=timezone(timedelta(seconds=-time.timezone)),
-            )
-            start = start + timedelta(
-                hours=block["start"][3], minutes=block["start"][4]
-            )
-            end = end + timedelta(hours=block["end"][3], minutes=block["end"][4])
-            start = int(start.astimezone(timezone.utc).timestamp())
-            end = int(end.astimezone(timezone.utc).timestamp())
-            exc_week += "x{:08X}{:08X}{:03d}{:01d}X".format(
-                start, end, device.predefined_temperatures[block["temperature"]], 0
-            )
-
         cal_version = device.cal_version + 1
         xml += "v{:04X}".format(cal_version & 0xFFFF)
-        xml += std_week + exc_week
+        xml += _calendar_payload(device)
         xml += "</CAL>"
         device.cal_version = cal_version
         device.cal_synced = True
@@ -574,6 +600,7 @@ def thermostat(device_id):
     if "dhw_programs" in data:
         device.dhw_programs = data["dhw_programs"]
         changed = True
+        cal_changed = True
     if "outside_temperature" in data:
         device.outside_temperature = int(round(float(data["outside_temperature"]) * 10))
         changed = True
