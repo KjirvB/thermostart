@@ -380,6 +380,21 @@ class TestPublicThermostatApi:
             assert device.cal_synced is False
             assert device.ui_synced is False
 
+    def test_put_dhw_programs_accepts_dict(self):
+        from thermostart import db
+        from thermostart.models import Device
+
+        response = self.client.put(
+            "/thermostat/dev1",
+            json={"dhw_programs": {"home": 1, "comfort": 0}},
+        )
+
+        assert response.status_code == 200
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            assert device.dhw_programs == {"home": 1, "comfort": 0}
+            assert device.ui_synced is False
+
     def test_pause_and_unpause(self):
         from thermostart import db
         from thermostart.models import Device

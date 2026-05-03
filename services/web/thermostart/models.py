@@ -12,6 +12,15 @@ from thermostart.config import Config
 from thermostart.ts.utils import Display, Source, StatusLed
 
 
+class DhwProgramsDict(MutableDict):
+    @classmethod
+    def coerce(cls, key, value):
+        # Legacy rows may still contain [] from older defaults.
+        if isinstance(value, list):
+            return cls()
+        return super().coerce(key, value)
+
+
 @login_manager.user_loader
 def load_user(id):
     return Device.query.get(id)
@@ -35,7 +44,7 @@ class Device(UserMixin, db.Model):
 
     @staticmethod
     def get_default_dhw_programs():
-        return []
+        return {}
 
     @staticmethod
     def get_default_exceptions():
@@ -104,7 +113,7 @@ class Device(UserMixin, db.Model):
         MutableList.as_mutable(JSON), default=get_default_standard_week
     )
     dhw_programs = db.Column(
-        MutableList.as_mutable(JSON), default=get_default_dhw_programs
+        DhwProgramsDict.as_mutable(JSON), default=get_default_dhw_programs
     )
     ta = db.Column(db.Integer, default=0)  # no temperature adjustment
     dim = db.Column(db.Integer, default=100)  # leds on 100%
