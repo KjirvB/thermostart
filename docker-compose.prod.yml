@@ -5,6 +5,8 @@ services:
     build:
       context: ./services/web
       dockerfile: Dockerfile.prod
+      args:
+        TS_IMAGE: python:3.12-slim-bullseye
     command: gunicorn -t 600 -k eventlet -w 1 -b 0.0.0.0:3888 'thermostart:create_app()'
     restart: always
     volumes:

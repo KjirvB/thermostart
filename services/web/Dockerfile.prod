@@ -2,6 +2,8 @@
 # v2 BUNDLE  #
 ##############
 
+ARG TS_IMAGE=python:3.12-slim-bullseye
+
 # Build the React + Vite v2 UI. Output ends up at services/web/thermostart/static/v2/.
 FROM node:20-bookworm-slim AS frontend
 WORKDIR /build
@@ -15,8 +17,6 @@ RUN mkdir -p /out && npx vite build --outDir /out
 # BUILDER #
 ###########
 
-# pull official base image
-ARG TS_IMAGE=python:3.12-slim-bullseye
 FROM $TS_IMAGE as builder
 
 # set work directory

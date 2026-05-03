@@ -2,7 +2,16 @@ import json
 import logging
 import os
 
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required, login_user, logout_user
 
 from thermostart import db
@@ -89,10 +98,15 @@ def login_page():
                     return redirect(next_url if next_url else url_for("ui.home"))
             except ValueError:
                 pass
-            flash("Login unsuccessful. Please check your hardware ID and password.", "danger")
+            flash(
+                "Login unsuccessful. Please check your hardware ID and password.",
+                "danger",
+            )
         if use_v2:
             _, css = _v2_assets()
-            return render_template("v2/login.html", title="Sign in", form=form, v2_css=css)
+            return render_template(
+                "v2/login.html", title="Sign in", form=form, v2_css=css
+            )
         return render_template("login.html", title="Login", form=form)
 
 
