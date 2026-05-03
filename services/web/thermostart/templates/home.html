@@ -56,6 +56,10 @@
         </div>
 
         <div id="content">
+            <div id="ui-v2-banner" style="margin: 8px 12px; padding: 10px 14px; background: #fff8e1; border: 1px solid #f1c40f; border-radius: 6px; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+                <span style="flex: 1;">A redesigned interface is available.</span>
+                <a href="{{ url_for('ui.switch_ui', to='v2') }}" style="background: #f39c12; color: #fff; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: 600;">Try the new UI</a>
+            </div>
             {% block content %}{% endblock %}
         </div>
         <div class="clear"></div>

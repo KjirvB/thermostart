@@ -1,6 +1,8 @@
+import json
 import logging
+import os
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from thermostart import db
@@ -10,6 +12,28 @@ from thermostart.models import Device, Location
 
 _LOGGER = logging.getLogger(__name__)
 auth = Blueprint("auth", __name__)
+
+
+def _v2_assets():
+    """Return (entry_js, [css_files]) from the Vite manifest, or (None, []) on failure."""
+    static = current_app.static_folder
+    for candidate in [
+        os.path.join(static, "v2", ".vite", "manifest.json"),
+        os.path.join(static, "v2", "manifest.json"),
+    ]:
+        if os.path.exists(candidate):
+            with open(candidate, "r", encoding="utf-8") as f:
+                m = json.load(f)
+            entry = m.get("src/main.jsx", {})
+            return entry.get("file"), list(entry.get("css", []))
+    return None, []
+
+
+def _safe_next(next_url):
+    """Return next_url if it is a safe relative path, else None."""
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return None
 
 
 @auth.route("/register", methods=["GET", "POST"])
@@ -55,16 +79,20 @@ def login_page():
         return redirect(url_for("ui.home"))
     else:
         form = LoginForm()
+        next_url = _safe_next(request.args.get("next", ""))
+        use_v2 = next_url is not None and next_url.startswith("/ui/v2")
         if form.validate_on_submit():
             device = Device.query.filter_by(hardware_id=form.hardware_id.data).first()
             try:
                 if device and device.password == form.password.data:
                     login_user(user=device)
-                    flash(f"{device.hardware_id}, you have been logged in!", "success")
-                    return redirect(url_for("ui.home"))
+                    return redirect(next_url if next_url else url_for("ui.home"))
             except ValueError:
                 pass
-            flash("Login unsuccessful. Please check hardware_id and password", "danger")
+            flash("Login unsuccessful. Please check your hardware ID and password.", "danger")
+        if use_v2:
+            _, css = _v2_assets()
+            return render_template("v2/login.html", title="Sign in", form=form, v2_css=css)
         return render_template("login.html", title="Login", form=form)
 
 

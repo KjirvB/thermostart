@@ -524,18 +524,24 @@ if __name__ == "__main__":
             logging.info("Firmware written to: %s", filename)
 
 
+def opentherm_value_to_int(value):
+    if isinstance(value, int):
+        return value
+    return int(value, 16)
+
+
 def parse_f8_8(value):
     """
     Parses a 16-bit F8.8 fixed-point value (8 bits for integer, 8 bits for fractional part).
     """
-    integer_part = int(value, 16) >> 8  # Top 8 bits
-    fractional_part = int(value, 16) & 0xFF  # Bottom 8 bits
+    value = opentherm_value_to_int(value)
+    integer_part = value >> 8  # Top 8 bits
+    fractional_part = value & 0xFF  # Bottom 8 bits
     return integer_part + fractional_part / 256.0
 
 
 def interpret_status(hex_value):
-    # Convert the hex string to an integer
-    value = int(hex_value, 16)
+    value = opentherm_value_to_int(hex_value)
 
     # Masks
     master_mask = 0xFF00
@@ -583,8 +589,7 @@ def interpret_status(hex_value):
 
 
 def interpret_slave_config(hex_value):
-    # Convert the hex string to an integer
-    value = int(hex_value, 16)
+    value = opentherm_value_to_int(hex_value)
 
     # Masks
     slave_config_mask = 0xFF00

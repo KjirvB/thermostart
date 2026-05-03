@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pytz
 from flask_login import UserMixin
@@ -161,12 +161,74 @@ class Device(UserMixin, db.Model):
         else:
             return 0
 
+    def get_now_tz_aware(self):
+        location = Location.query.get(self.location_id)
+        if location is None:
+            return datetime.now(timezone.utc)
+        return datetime.now(pytz.timezone(location.timezone))
+
+    def get_exception_predefined_label(self, now_tz_aware):
+        for block in self.exceptions:
+            start = block["start"]
+            end = block["end"]
+            start_datetime = datetime(
+                start[0],
+                start[1] + 1,
+                start[2],
+                start[3],
+                start[4],
+                tzinfo=now_tz_aware.tzinfo,
+            )
+            if end[3] == 24:
+                end_datetime = datetime(
+                    end[0],
+                    end[1] + 1,
+                    end[2],
+                    0,
+                    0,
+                    tzinfo=now_tz_aware.tzinfo,
+                ) + timedelta(days=1)
+            else:
+                end_datetime = datetime(
+                    end[0],
+                    end[1] + 1,
+                    end[2],
+                    end[3],
+                    end[4],
+                    tzinfo=now_tz_aware.tzinfo,
+                )
+            if start_datetime <= now_tz_aware < end_datetime:
+                return block["temperature"]
+        return "none"
+
+    def get_std_week_predefined_label(self, now_tz_aware):
+        day_of_week = now_tz_aware.weekday()
+        minutes_since_midnight = now_tz_aware.hour * 60 + now_tz_aware.minute
+        predefined_label = "pause"
+        for block in self.standard_week:
+            start = block["start"]
+            if start[0] == day_of_week:
+                if start[1] * 60 + start[2] < minutes_since_midnight:
+                    predefined_label = block["temperature"]
+                else:
+                    break
+            if start[0] > day_of_week:
+                break
+        return predefined_label
+
     def __repr__(self):
         return f"<Entry [{self.hardware_id}] {self.source}>"
 
 
 class DeviceMessage(db.Model):
     __tablename__ = "device_messages"
+    __table_args__ = (
+        db.Index(
+            "ix_device_messages_device_hardware_id_timestamp",
+            "device_hardware_id",
+            "timestamp",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     device_hardware_id = db.Column(
@@ -181,6 +243,13 @@ class DeviceMessage(db.Model):
 
 class ParsedMessage(db.Model):
     __tablename__ = "parsed_messages"
+    __table_args__ = (
+        db.Index(
+            "ix_parsed_messages_device_hardware_id_timestamp",
+            "device_hardware_id",
+            "timestamp",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     device_hardware_id = db.Column(
