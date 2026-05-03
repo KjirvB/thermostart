@@ -43,6 +43,7 @@ function buildXTicks(range, startTs, bucketSeconds, pointCount, locale) {
 function HistoryGraph({ data, range, locale, height = 180 }) {
   const wrapRef = useRef(null);
   const [w, setW] = useState(800);
+  const [hover, setHover] = useState(null);
   useEffect(() => {
     if (!wrapRef.current) return;
     const ro = new ResizeObserver(([entry]) => {
@@ -65,6 +66,24 @@ function HistoryGraph({ data, range, locale, height = 180 }) {
 
   const xAt = (i) => pad.l + (N <= 1 ? 0 : (i / (N - 1)) * ihw);
   const yAt = (v) => pad.t + (1 - (v - min) / yRange) * ihh;
+
+  const onPointerMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xLocal = e.clientX - rect.left;
+    const frac = (xLocal - pad.l) / ihw;
+    if (frac < -0.02 || frac > 1.02 || N <= 1) { setHover(null); return; }
+    const idx = Math.max(0, Math.min(N - 1, Math.round(frac * (N - 1))));
+    setHover({ idx });
+  };
+
+  const formatBucketTime = (idx) => {
+    const ts = data.start_ts + idx * data.bucket_seconds;
+    const d = new Date(ts * 1000);
+    const loc = locale || "en-GB";
+    if (range === "24h") return new Intl.DateTimeFormat(loc, { hour: "2-digit", minute: "2-digit" }).format(d);
+    if (range === "7d") return new Intl.DateTimeFormat(loc, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(d);
+    return new Intl.DateTimeFormat(loc, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(d);
+  };
 
   const pathFor = (arr) => {
     let d = "", penDown = false;
@@ -109,9 +128,20 @@ function HistoryGraph({ data, range, locale, height = 180 }) {
 
   const xTicks = buildXTicks(range, data.start_ts, data.bucket_seconds, N, locale);
 
+  const hoverTarget = hover != null ? data.target[hover.idx] : null;
+  const hoverRoom = hover != null ? data.room[hover.idx] : null;
+  const tipFlip = hover != null && xAt(hover.idx) > w * 0.7;
+
   return (
-    <div ref={wrapRef} style={{ width: "100%" }}>
-      <svg className="history" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+    <div ref={wrapRef} style={{ width: "100%", position: "relative" }}>
+      <svg
+        className="history"
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHover(null)}
+      >
         <defs>
           <linearGradient id="histFillTarget" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--ember)" stopOpacity="0.18" />
@@ -130,7 +160,48 @@ function HistoryGraph({ data, range, locale, height = 180 }) {
         <path d={fillFor(data.target)} fill="url(#histFillTarget)" />
         <path d={pathFor(data.target)} fill="none" stroke="var(--ember)" strokeWidth="1.8" />
         <path d={pathFor(data.room)} fill="none" stroke="var(--ink-1)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
+        {hover && (
+          <g pointerEvents="none">
+            <line x1={xAt(hover.idx)} y1={pad.t} x2={xAt(hover.idx)} y2={pad.t + ihh}
+                  stroke="var(--ink-3)" strokeWidth="1" strokeDasharray="2 3" opacity="0.8" />
+            {hoverTarget != null && (
+              <circle cx={xAt(hover.idx)} cy={yAt(hoverTarget)} r="3" fill="var(--ember)" />
+            )}
+            {hoverRoom != null && (
+              <circle cx={xAt(hover.idx)} cy={yAt(hoverRoom)} r="3" fill="var(--ink-1)" opacity="0.8" />
+            )}
+          </g>
+        )}
       </svg>
+      {hover && (
+        <div style={{
+          position: "absolute",
+          top: 8,
+          ...(tipFlip ? { right: w - xAt(hover.idx) + 10 } : { left: xAt(hover.idx) + 10 }),
+          background: "var(--paper, #fff)",
+          border: "1px solid var(--line)",
+          borderRadius: 4,
+          padding: "6px 8px",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          color: "var(--ink-1)",
+          letterSpacing: "0.04em",
+          pointerEvents: "none",
+          whiteSpace: "nowrap",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          lineHeight: 1.5,
+        }}>
+          <div style={{ color: "var(--ink-2)", marginBottom: 2 }}>{formatBucketTime(hover.idx)}</div>
+          <div>
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: "var(--ember)", marginRight: 6, verticalAlign: "middle" }} />
+            {hoverTarget != null ? hoverTarget.toFixed(1) + "°" : "—"}
+          </div>
+          <div>
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: "var(--ink-1)", marginRight: 6, opacity: 0.7, verticalAlign: "middle" }} />
+            {hoverRoom != null ? hoverRoom.toFixed(1) + "°" : "—"}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
