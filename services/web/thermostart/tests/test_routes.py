@@ -529,3 +529,138 @@ class TestDeviceScheduleHelpers:
             )
 
             assert device.get_exception_predefined_label(now) == "comfort"
+
+
+class TestV2HistoryRoute:
+    def setup_method(self):
+        from thermostart import db, fill_location_db
+        from thermostart.models import Device
+
+        self.app = create_app()
+        self.app.config.update(
+            {
+                "TESTING": True,
+                "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                "WTF_CSRF_ENABLED": False,
+            }
+        )
+        with self.app.app_context():
+            db.create_all()
+            fill_location_db(self.app)
+            device = Device(hardware_id="dev1", password="pwd")
+            device.location_id = 1
+            device.log_opentherm = True
+            device.log_retention_days = 0
+            db.session.add(device)
+            db.session.commit()
+        self.client = self.app.test_client()
+        with self.client:
+            self.client.post(
+                "/login", data={"hardware_id": "dev1", "password": "pwd"}
+            )
+
+    def teardown_method(self):
+        from thermostart import db
+
+        with self.app.app_context():
+            db.drop_all()
+
+    def test_unauthenticated_redirects_to_login(self):
+        anon = self.app.test_client()
+        response = anon.get("/ui/v2/api/history?range=24h")
+        assert response.status_code == 302
+        assert b"/login" in response.data
+
+    def test_invalid_range_returns_400(self):
+        with self.client:
+            response = self.client.get("/ui/v2/api/history?range=1y")
+        assert response.status_code == 400
+
+    def test_empty_when_log_opentherm_disabled(self):
+        from datetime import datetime, timezone
+
+        from thermostart import db
+        from thermostart.models import Device, ParsedMessage
+
+        with self.app.app_context():
+            device = Device.query.get("dev1")
+            device.log_opentherm = False
+            db.session.add(
+                ParsedMessage(
+                    device_hardware_id="dev1",
+                    timestamp=datetime.now(timezone.utc),
+                    tc=210,
+                    pv=205,
+                )
+            )
+            db.session.commit()
+
+        with self.client:
+            response = self.client.get("/ui/v2/api/history?range=24h")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["range"] == "24h"
+        assert data["bucket_seconds"] == 900
+        assert len(data["target"]) == 96
+        assert len(data["room"]) == 96
+        assert all(v is None for v in data["target"])
+        assert all(v is None for v in data["room"])
+
+    def test_empty_when_no_rows(self):
+        with self.client:
+            response = self.client.get("/ui/v2/api/history?range=24h")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["target"]) == 96
+        assert all(v is None for v in data["target"])
+        assert all(v is None for v in data["room"])
+
+    def test_returns_bucketed_averages(self):
+        from datetime import datetime, timedelta, timezone
+
+        from thermostart import db
+        from thermostart.models import ParsedMessage
+
+        now = datetime.now(timezone.utc)
+        with self.app.app_context():
+            # Three closely-spaced rows so they land in the same 15-min bucket
+            # regardless of where 'now' sits within its bucket. avg(tc)=210, avg(pv)=200.
+            for offset_s, tc, pv in [(1, 200, 190), (5, 220, 200), (10, 210, 210)]:
+                db.session.add(
+                    ParsedMessage(
+                        device_hardware_id="dev1",
+                        timestamp=now - timedelta(seconds=offset_s),
+                        tc=tc,
+                        pv=pv,
+                    )
+                )
+            # An earlier row well outside the 15-min window: tc=180, pv=185.
+            db.session.add(
+                ParsedMessage(
+                    device_hardware_id="dev1",
+                    timestamp=now - timedelta(hours=3),
+                    tc=180,
+                    pv=185,
+                )
+            )
+            db.session.commit()
+
+        with self.client:
+            response = self.client.get("/ui/v2/api/history?range=24h")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert len(data["target"]) == 96
+
+        # Find the two non-null buckets and check their values.
+        non_null_idxs = [i for i, v in enumerate(data["target"]) if v is not None]
+        assert len(non_null_idxs) == 2
+        recent_idx, older_idx = non_null_idxs[1], non_null_idxs[0]
+        assert recent_idx > older_idx
+
+        assert data["target"][recent_idx] == 21.0
+        assert data["room"][recent_idx] == 20.0
+        assert data["target"][older_idx] == 18.0
+        assert data["room"][older_idx] == 18.5
+
+        # No data in unrelated buckets
+        assert data["target"][0] is None

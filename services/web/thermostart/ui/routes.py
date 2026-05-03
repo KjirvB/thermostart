@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timezone
 from functools import lru_cache
 
 from flask import (
@@ -14,15 +15,24 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required
+from sqlalchemy import Integer, func
 
 from thermostart import db
-from thermostart.models import Device, Location  # noqa: F401
+from thermostart.models import Device, Location, ParsedMessage  # noqa: F401
 from thermostart.ts.utils import (
     get_firmware,
     get_firmware_name,
     interpret_status,
     parse_f8_8,
 )
+
+
+HISTORY_RANGES = {
+    # range_key -> (window_seconds, bucket_seconds, point_count)
+    "24h": (86400, 900, 96),
+    "7d": (604800, 3600, 168),
+    "30d": (2592000, 14400, 180),
+}
 
 ui = Blueprint("ui", __name__)
 
@@ -220,6 +230,55 @@ def v2_update_settings():
         db.session.commit()
 
     return jsonify(applied)
+
+
+@ui.route("/ui/v2/api/history")
+@login_required
+def v2_history():
+    range_key = request.args.get("range", "24h")
+    if range_key not in HISTORY_RANGES:
+        abort(400, description="invalid range")
+    window_s, bucket_s, point_count = HISTORY_RANGES[range_key]
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    latest_bucket_ts = (now_ts // bucket_s) * bucket_s
+    start_ts = latest_bucket_ts - (point_count - 1) * bucket_s
+
+    target = [None] * point_count
+    room = [None] * point_count
+
+    if current_user.log_opentherm:
+        ts_epoch = func.cast(func.strftime("%s", ParsedMessage.timestamp), Integer)
+        bucket_ts_expr = (ts_epoch / bucket_s) * bucket_s
+        rows = (
+            db.session.query(
+                bucket_ts_expr.label("bucket_ts"),
+                func.avg(ParsedMessage.tc).label("avg_tc"),
+                func.avg(ParsedMessage.pv).label("avg_pv"),
+            )
+            .filter(ParsedMessage.device_hardware_id == current_user.hardware_id)
+            .filter(ts_epoch >= start_ts)
+            .group_by("bucket_ts")
+            .all()
+        )
+
+        for bucket_ts, avg_tc, avg_pv in rows:
+            idx = (int(bucket_ts) - start_ts) // bucket_s
+            if 0 <= idx < point_count:
+                if avg_tc is not None:
+                    target[idx] = round(float(avg_tc) / 10, 1)
+                if avg_pv is not None:
+                    room[idx] = round(float(avg_pv) / 10, 1)
+
+    return jsonify(
+        {
+            "range": range_key,
+            "start_ts": start_ts,
+            "bucket_seconds": bucket_s,
+            "target": target,
+            "room": room,
+        }
+    )
 
 
 @ui.route("/firmware", methods=["POST"])
