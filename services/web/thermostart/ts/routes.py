@@ -425,13 +425,14 @@ def api():
             f"<PID><KP>{device.kp}</KP><TI>{device.ti}</TI><TD>{device.td}</TD></PID>"
         )
     elif device.ui_synced is False:
-        if device.ui_source == "pause_button":
+        if device.ui_source in ("pause_button", "api_pause_button"):
             pause = int(device.source == Source.PAUSE.value)
             xml += f"<PAUSE>{pause}</PAUSE>"
             xml += f"<INIT><SRC>{device.source}</SRC></INIT>"
         elif device.ui_source in (
             "direct_temperature_setter_up",
             "direct_temperature_setter_down",
+            "api_temperature_setter",
         ):
             xml += "<PAUSE>0</PAUSE>"
             xml += f"<INIT><SRC>{device.source}</SRC></INIT>"
@@ -551,6 +552,7 @@ def thermostat(device_id):
 
     data = request.get_json(silent=True) or {}
     changed = False
+    cal_changed = False
 
     if "target_temperature" in data:
         device.target_temperature = int(round(float(data["target_temperature"]) * 10))
@@ -560,12 +562,15 @@ def thermostat(device_id):
     if "exceptions" in data:
         device.exceptions = data["exceptions"]
         changed = True
+        cal_changed = True
     if "standard_week" in data:
         device.standard_week = data["standard_week"]
         changed = True
+        cal_changed = True
     if "predefined_temperatures" in data:
         device.predefined_temperatures = data["predefined_temperatures"]
         changed = True
+        cal_changed = True
     if "dhw_programs" in data:
         device.dhw_programs = data["dhw_programs"]
         changed = True
@@ -575,6 +580,8 @@ def thermostat(device_id):
 
     if changed:
         device.ui_synced = False
+        if cal_changed:
+            device.cal_synced = False
         db.session.commit()
         broadcast = {}
         if "target_temperature" in data:
