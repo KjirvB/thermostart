@@ -587,7 +587,7 @@ class TestV2HistoryRoute:
                 ParsedMessage(
                     device_hardware_id="dev1",
                     timestamp=datetime.now(timezone.utc),
-                    tc=210,
+                    sv=210,
                     pv=205,
                 )
             )
@@ -622,22 +622,22 @@ class TestV2HistoryRoute:
         now = datetime.now(timezone.utc)
         with self.app.app_context():
             # Three closely-spaced rows so they land in the same 15-min bucket
-            # regardless of where 'now' sits within its bucket. avg(tc)=210, avg(pv)=200.
-            for offset_s, tc, pv in [(1, 200, 190), (5, 220, 200), (10, 210, 210)]:
+            # regardless of where 'now' sits within its bucket. avg(sv)=210, avg(pv)=200.
+            for offset_s, sv, pv in [(1, 200, 190), (5, 220, 200), (10, 210, 210)]:
                 db.session.add(
                     ParsedMessage(
                         device_hardware_id="dev1",
                         timestamp=now - timedelta(seconds=offset_s),
-                        tc=tc,
+                        sv=sv,
                         pv=pv,
                     )
                 )
-            # An earlier row well outside the 15-min window: tc=180, pv=185.
+            # An earlier row well outside the 15-min window: sv=180, pv=185.
             db.session.add(
                 ParsedMessage(
                     device_hardware_id="dev1",
                     timestamp=now - timedelta(hours=3),
-                    tc=180,
+                    sv=180,
                     pv=185,
                 )
             )

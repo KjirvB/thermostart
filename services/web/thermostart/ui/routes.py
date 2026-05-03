@@ -253,7 +253,7 @@ def v2_history():
         rows = (
             db.session.query(
                 bucket_ts_expr.label("bucket_ts"),
-                func.avg(ParsedMessage.tc).label("avg_tc"),
+                func.avg(ParsedMessage.sv).label("avg_sv"),
                 func.avg(ParsedMessage.pv).label("avg_pv"),
             )
             .filter(ParsedMessage.device_hardware_id == current_user.hardware_id)
@@ -262,11 +262,11 @@ def v2_history():
             .all()
         )
 
-        for bucket_ts, avg_tc, avg_pv in rows:
+        for bucket_ts, avg_sv, avg_pv in rows:
             idx = (int(bucket_ts) - start_ts) // bucket_s
             if 0 <= idx < point_count:
-                if avg_tc is not None:
-                    target[idx] = round(float(avg_tc) / 10, 1)
+                if avg_sv is not None:
+                    target[idx] = round(float(avg_sv) / 10, 1)
                 if avg_pv is not None:
                     room[idx] = round(float(avg_pv) / 10, 1)
 
