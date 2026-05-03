@@ -133,8 +133,8 @@ class TestUiSwitchCookie:
 class TestThermostatModel:
     def setup_method(self):
         from thermostart import db, fill_location_db
-        from thermostart.models import Device
         from thermostart.config import Config
+        from thermostart.models import Device
 
         self.app = create_app()
         self.app.config.update(
@@ -159,8 +159,8 @@ class TestThermostatModel:
 
     def test_defaults_and_updates(self):
         from thermostart import db
-        from thermostart.models import Device
         from thermostart.config import Config
+        from thermostart.models import Device
 
         with self.client:
             resp = self.client.get("/thermostatmodel")
@@ -183,9 +183,10 @@ class TestThermostatModel:
 
 class TestPruneMessages:
     def test_prune(self, app):
+        from datetime import datetime, timedelta, timezone
+
         from thermostart import db, fill_location_db
         from thermostart.models import Device, ParsedMessage
-        from datetime import datetime, timedelta, timezone
 
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
         with app.app_context():

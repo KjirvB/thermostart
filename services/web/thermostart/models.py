@@ -8,8 +8,8 @@ from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.sql import func
 
 from thermostart import db, login_manager
-from thermostart.ts.utils import Display, Source, StatusLed
 from thermostart.config import Config
+from thermostart.ts.utils import Display, Source, StatusLed
 
 
 @login_manager.user_loader
