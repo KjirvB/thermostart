@@ -242,6 +242,7 @@ def v2_history():
     now_ts = int(datetime.now(timezone.utc).timestamp())
     latest_bucket_ts = (now_ts // bucket_s) * bucket_s
     start_ts = latest_bucket_ts - (point_count - 1) * bucket_s
+    start_dt = datetime.fromtimestamp(start_ts, tz=timezone.utc)
 
     target = [None] * point_count
     room = [None] * point_count
@@ -256,7 +257,7 @@ def v2_history():
                 func.avg(ParsedMessage.pv).label("avg_pv"),
             )
             .filter(ParsedMessage.device_hardware_id == current_user.hardware_id)
-            .filter(ts_epoch >= start_ts)
+            .filter(ParsedMessage.timestamp >= start_dt)
             .group_by("bucket_ts")
             .all()
         )
