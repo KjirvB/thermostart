@@ -222,6 +222,13 @@ class Device(UserMixin, db.Model):
 
 class DeviceMessage(db.Model):
     __tablename__ = "device_messages"
+    __table_args__ = (
+        db.Index(
+            "ix_device_messages_device_hardware_id_timestamp",
+            "device_hardware_id",
+            "timestamp",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     device_hardware_id = db.Column(
@@ -236,6 +243,13 @@ class DeviceMessage(db.Model):
 
 class ParsedMessage(db.Model):
     __tablename__ = "parsed_messages"
+    __table_args__ = (
+        db.Index(
+            "ix_parsed_messages_device_hardware_id_timestamp",
+            "device_hardware_id",
+            "timestamp",
+        ),
+    )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     device_hardware_id = db.Column(
