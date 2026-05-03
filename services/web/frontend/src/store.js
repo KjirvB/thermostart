@@ -184,6 +184,7 @@ export function useStore() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const predTempTimer = useRef(null);
 
   // Initial hydrate (bootstrap or fetch)
   useEffect(() => {
@@ -308,14 +309,17 @@ export function useStore() {
         console.error(e);
       }
     },
-    async setPredefinedTemperature(key, tenths) {
+    setPredefinedTemperature(key, tenths) {
       const next = { ...stateRef.current.predefinedTemperatures, [key]: tenths };
       dispatch({ type: "patch", patch: { predefinedTemperatures: next } });
-      try {
-        await putThermostat({ predefined_temperatures: next });
-      } catch (e) {
-        console.error(e);
-      }
+      clearTimeout(predTempTimer.current);
+      predTempTimer.current = setTimeout(async () => {
+        try {
+          await putThermostat({ predefined_temperatures: stateRef.current.predefinedTemperatures });
+        } catch (e) {
+          console.error(e);
+        }
+      }, 600);
     },
     async setDhwPrograms(programs) {
       dispatch({ type: "patch", patch: { dhwPrograms: programs } });
