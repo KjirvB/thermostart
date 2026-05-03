@@ -22,8 +22,8 @@ from .utils import (
     get_firmware,
     interpret_slave_config,
     interpret_status,
-    parse_message,
     parse_f8_8,
+    parse_message,
 )
 
 _LOGGER = logging.getLogger(__name__)

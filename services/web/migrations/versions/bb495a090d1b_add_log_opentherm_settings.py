@@ -8,6 +8,7 @@ Create Date: 2024-10-07 00:00:00
 
 import sqlalchemy as sa
 from alembic import op
+
 from thermostart.config import Config
 
 # revision identifiers, used by Alembic.
