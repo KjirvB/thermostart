@@ -340,6 +340,46 @@ class TestPublicThermostatApi:
             assert device.ui_source == "api_temperature_setter"
             assert device.ui_synced is False
 
+    def test_put_standard_week_marks_cal_unsynced(self):
+        from thermostart import db
+        from thermostart.models import Device
+
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            device.cal_synced = True
+            db.session.commit()
+
+        response = self.client.put(
+            "/thermostat/dev1",
+            json={"standard_week": [{"start": [0, 6, 0], "temperature": "home"}]},
+        )
+
+        assert response.status_code == 200
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            assert device.cal_synced is False
+            assert device.ui_synced is False
+
+    def test_put_predefined_temperatures_marks_cal_unsynced(self):
+        from thermostart import db
+        from thermostart.models import Device
+
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            device.cal_synced = True
+            db.session.commit()
+
+        response = self.client.put(
+            "/thermostat/dev1",
+            json={"predefined_temperatures": {"home": 215, "pause": 120}},
+        )
+
+        assert response.status_code == 200
+        with self.app.app_context():
+            device = db.session.get(Device, "dev1")
+            assert device.cal_synced is False
+            assert device.ui_synced is False
+
     def test_pause_and_unpause(self):
         from thermostart import db
         from thermostart.models import Device
