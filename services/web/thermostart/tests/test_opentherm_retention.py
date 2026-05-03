@@ -31,14 +31,24 @@ class TestOpenThermRetention:
                     ParsedMessage(device_hardware_id="dev2", timestamp=old_ts),
                     ParsedMessage(device_hardware_id="dev2", timestamp=fresh_ts),
                     ParsedMessage(device_hardware_id="dev3", timestamp=old_ts),
-                    DeviceMessage(device_hardware_id="dev2", timestamp=old_ts, message={"a": 1}),
-                    DeviceMessage(device_hardware_id="dev2", timestamp=fresh_ts, message={"a": 2}),
-                    DeviceMessage(device_hardware_id="dev3", timestamp=old_ts, message={"b": 1}),
+                    DeviceMessage(
+                        device_hardware_id="dev2", timestamp=old_ts, message={"a": 1}
+                    ),
+                    DeviceMessage(
+                        device_hardware_id="dev2",
+                        timestamp=fresh_ts,
+                        message={"a": 2},
+                    ),
+                    DeviceMessage(
+                        device_hardware_id="dev3", timestamp=old_ts, message={"b": 1}
+                    ),
                 ]
             )
             db.session.commit()
 
-            cutoff = datetime.now(timezone.utc) - timedelta(days=device_a.log_retention_days)
+            cutoff = datetime.now(timezone.utc) - timedelta(
+                days=device_a.log_retention_days
+            )
 
             deleted_parsed = (
                 db.session.query(ParsedMessage)
@@ -56,7 +66,27 @@ class TestOpenThermRetention:
 
             assert deleted_parsed == 1
             assert deleted_raw == 1
-            assert db.session.query(ParsedMessage).filter(ParsedMessage.device_hardware_id == "dev2").count() == 1
-            assert db.session.query(DeviceMessage).filter(DeviceMessage.device_hardware_id == "dev2").count() == 1
-            assert db.session.query(ParsedMessage).filter(ParsedMessage.device_hardware_id == "dev3").count() == 1
-            assert db.session.query(DeviceMessage).filter(DeviceMessage.device_hardware_id == "dev3").count() == 1
+            assert (
+                db.session.query(ParsedMessage)
+                .filter(ParsedMessage.device_hardware_id == "dev2")
+                .count()
+                == 1
+            )
+            assert (
+                db.session.query(DeviceMessage)
+                .filter(DeviceMessage.device_hardware_id == "dev2")
+                .count()
+                == 1
+            )
+            assert (
+                db.session.query(ParsedMessage)
+                .filter(ParsedMessage.device_hardware_id == "dev3")
+                .count()
+                == 1
+            )
+            assert (
+                db.session.query(DeviceMessage)
+                .filter(DeviceMessage.device_hardware_id == "dev3")
+                .count()
+                == 1
+            )
