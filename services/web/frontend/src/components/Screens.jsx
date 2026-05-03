@@ -86,7 +86,47 @@ const IcoPot = () => (
 function ProgramDefaults({ state, actions, t }) {
   const showDhw = state.oo === 1 && (state.fw >= 20140825 || state.hw === 3);
   const programs = Object.values(PROGRAMS).filter((p) => p.key !== "pause");
+  const pause = PROGRAMS.pause;
   const rowCls = "pgm-row" + (showDhw ? " pgm-has-dhw" : "");
+
+  function PgmRow({ p }) {
+    const tenths = state.predefinedTemperatures[p.key] ?? p.temp;
+    const dhwOn = state.dhwPrograms[p.key] === 1;
+    const bump = (d) => actions.setPredefinedTemperature(p.key, Math.max(50, Math.min(300, tenths + d)));
+
+    return (
+      <div className={rowCls}>
+        <div className="pgm-name">
+          <span className="sw" style={{ background: p.color }}></span>
+          {t(p.tk)}
+        </div>
+        <div className="pgm-temp">
+          <div className="stepper">
+            <button onClick={() => bump(-5)}>−</button>
+            <span className="v">{(tenths / 10).toFixed(1)}°</span>
+            <button onClick={() => bump(+5)}>+</button>
+          </div>
+        </div>
+        {showDhw && (
+          <div className="pgm-dhw">
+            <div className="seg dhw-seg">
+              <button className={!dhwOn ? "on" : ""}
+                      onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 0 })}>
+                <span className="pgm-btn-inner"><IcoDroplet />{t("schedule.dhw.saving")}</span>
+              </button>
+              <button className={dhwOn ? "on" : ""}
+                      onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 1 })}>
+                <span className="pgm-btn-inner"><IcoPot />{t("schedule.dhw.maintain")}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const pauseTenths = state.predefinedTemperatures[pause.key] ?? pause.temp;
+  const bumpPause = (d) => actions.setPredefinedTemperature(pause.key, Math.max(50, Math.min(300, pauseTenths + d)));
 
   return (
     <div>
@@ -96,41 +136,24 @@ function ProgramDefaults({ state, actions, t }) {
       </div>
       <div className="card">
         <div className="pgm-table">
-          {programs.map((p) => {
-            const tenths = state.predefinedTemperatures[p.key] ?? p.temp;
-            const dhwOn = state.dhwPrograms[p.key] === 1;
-            const bump = (d) => actions.setPredefinedTemperature(p.key, Math.max(50, Math.min(300, tenths + d)));
+          {programs.map((p) => <PgmRow key={p.key} p={p} />)}
+        </div>
 
-            return (
-              <div key={p.key} className={rowCls}>
-                <div className="pgm-name">
-                  <span className="sw" style={{ background: p.color }}></span>
-                  {t(p.tk)}
-                </div>
-                <div className="pgm-temp">
-                  <div className="stepper">
-                    <button onClick={() => bump(-5)}>−</button>
-                    <span className="v">{(tenths / 10).toFixed(1)}°</span>
-                    <button onClick={() => bump(+5)}>+</button>
-                  </div>
-                </div>
-                {showDhw && (
-                  <div className="pgm-dhw">
-                    <div className="seg dhw-seg">
-                      <button className={!dhwOn ? "on" : ""}
-                              onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 0 })}>
-                        <span className="pgm-btn-inner"><IcoDroplet />{t("schedule.dhw.saving")}</span>
-                      </button>
-                      <button className={dhwOn ? "on" : ""}
-                              onClick={() => actions.setDhwPrograms({ ...state.dhwPrograms, [p.key]: 1 })}>
-                        <span className="pgm-btn-inner"><IcoPot />{t("schedule.dhw.maintain")}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+        <div className="pgm-base">
+          <div className="pgm-base-row">
+            <div className="pgm-name">
+              <span className="sw" style={{ background: pause.color }}></span>
+              {t(pause.tk)}
+            </div>
+            <div className="pgm-temp">
+              <div className="stepper">
+                <button onClick={() => bumpPause(-5)}>−</button>
+                <span className="v">{(pauseTenths / 10).toFixed(1)}°</span>
+                <button onClick={() => bumpPause(+5)}>+</button>
               </div>
-            );
-          })}
+            </div>
+          </div>
+          <p className="pgm-base-note">{t("schedule.base_temp.note")}</p>
         </div>
 
         {showDhw && (

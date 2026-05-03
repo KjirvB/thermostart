@@ -1233,6 +1233,25 @@ input:focus { outline: 0; border-color: var(--ember); }
   gap: 5px;
 }
 
+.pgm-base {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.pgm-base-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 20px;
+  align-items: center;
+}
+.pgm-base-note {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
 .pgm-foot {
   margin-top: 14px;
   padding-top: 12px;

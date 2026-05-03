@@ -68,6 +68,7 @@ const T = {
     "schedule.dhw.maintain":      "Maintain temp",
     "schedule.dhw.note.saving":   "boiler heats water on demand. Lower gas use, ~30s wait at the tap.",
     "schedule.dhw.note.maintain": "boiler keeps hot water ready. Instant hot tap, more gas.",
+    "schedule.base_temp.note":    "Temperature held when no program is scheduled.",
     // Exceptions
     "exceptions.eyebrow":         "Agenda",
     "exceptions.heading":         "Exceptions",
@@ -224,6 +225,7 @@ const T = {
     "schedule.dhw.maintain":      "Temperatuur handhaven",
     "schedule.dhw.note.saving":   "ketel verwarmt water op aanvraag. Lager gasverbruik, ~30s wachten.",
     "schedule.dhw.note.maintain": "ketel houdt warm water klaar. Direct warm water, meer gas.",
+    "schedule.base_temp.note":    "Temperatuur wanneer er geen programma is gepland.",
     "exceptions.eyebrow":         "Agenda",
     "exceptions.heading":         "Uitzonderingen",
     "exceptions.heading_em":      "& aanpassingen",
@@ -374,6 +376,7 @@ const T = {
     "schedule.dhw.maintain":      "Temp. halten",
     "schedule.dhw.note.saving":   "Kessel heizt Wasser auf Anfrage. Weniger Gas, ~30s Wartezeit.",
     "schedule.dhw.note.maintain": "Kessel hält Warmwasser bereit. Sofort warm, mehr Gas.",
+    "schedule.base_temp.note":    "Temperatur, wenn kein Programm eingeplant ist.",
     "exceptions.eyebrow":         "Agenda",
     "exceptions.heading":         "Ausnahmen",
     "exceptions.heading_em":      "& Overrides",
