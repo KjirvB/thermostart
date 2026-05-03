@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dial } from "./Dial.jsx";
 import { DayClock, RibbonEditor, BlockEditDialog } from "./Schedule.jsx";
 import { PROGRAMS, slotToHHMM, nowDayIdx, nowSlot } from "../constants.js";
@@ -41,7 +41,19 @@ function buildXTicks(range, startTs, bucketSeconds, pointCount, locale) {
 }
 
 function HistoryGraph({ data, range, locale, height = 180 }) {
-  const w = 800, h = height, pad = { l: 30, r: 14, t: 14, b: 22 };
+  const wrapRef = useRef(null);
+  const [w, setW] = useState(800);
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const cw = Math.max(200, Math.round(entry.contentRect.width));
+      setW(cw);
+    });
+    ro.observe(wrapRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const h = height, pad = { l: 30, r: 14, t: 14, b: 22 };
   const ihw = w - pad.l - pad.r;
   const ihh = h - pad.t - pad.b;
 
@@ -98,26 +110,28 @@ function HistoryGraph({ data, range, locale, height = 180 }) {
   const xTicks = buildXTicks(range, data.start_ts, data.bucket_seconds, N, locale);
 
   return (
-    <svg className="history" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="histFillTarget" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--ember)" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="var(--ember)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {yTicks.map((v) => (
-        <g key={v}>
-          <line className="grid-line" x1={pad.l} y1={yAt(v)} x2={w - pad.r} y2={yAt(v)} />
-          <text className="axis" x={pad.l - 6} y={yAt(v) + 3} textAnchor="end">{v}°</text>
-        </g>
-      ))}
-      {xTicks.map((tk, i) => (
-        <text key={i} className="axis" x={pad.l + tk.frac * ihw} y={height - 4} textAnchor="middle">{tk.label}</text>
-      ))}
-      <path d={fillFor(data.target)} fill="url(#histFillTarget)" />
-      <path d={pathFor(data.target)} fill="none" stroke="var(--ember)" strokeWidth="1.8" />
-      <path d={pathFor(data.room)} fill="none" stroke="var(--ink-1)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
-    </svg>
+    <div ref={wrapRef} style={{ width: "100%" }}>
+      <svg className="history" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <defs>
+          <linearGradient id="histFillTarget" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--ember)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="var(--ember)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {yTicks.map((v) => (
+          <g key={v}>
+            <line className="grid-line" x1={pad.l} y1={yAt(v)} x2={w - pad.r} y2={yAt(v)} />
+            <text className="axis" x={pad.l - 6} y={yAt(v) + 3} textAnchor="end">{v}°</text>
+          </g>
+        ))}
+        {xTicks.map((tk, i) => (
+          <text key={i} className="axis" x={pad.l + tk.frac * ihw} y={height - 4} textAnchor="middle">{tk.label}</text>
+        ))}
+        <path d={fillFor(data.target)} fill="url(#histFillTarget)" />
+        <path d={pathFor(data.target)} fill="none" stroke="var(--ember)" strokeWidth="1.8" />
+        <path d={pathFor(data.room)} fill="none" stroke="var(--ink-1)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.7" />
+      </svg>
+    </div>
   );
 }
 
