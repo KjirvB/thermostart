@@ -23,13 +23,22 @@ function Icon({ children }) {
 export default function App() {
   const [state, actions] = useStore();
   const [themeMode, setThemeMode] = useTheme();
-  const [route, setRoute] = useState("overview");
+  const initialRoute = () => {
+    const h = window.location.hash.slice(1);
+    return NAV.some(n => n.k === h) ? h : "overview";
+  };
+  const [route, setRoute] = useState(initialRoute);
   const t = useMemo(() => makeT(state.locale || "en-GB"), [state.locale]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-skin", "paper");
     document.documentElement.setAttribute("data-density", "cozy");
   }, []);
+
+  useEffect(() => {
+    window.location.hash = route;
+    window.scrollTo(0, 0);
+  }, [route]);
 
   if (!state.loaded) {
     return (
