@@ -133,7 +133,7 @@ function reducer(state, action) {
       for (const [k, v] of Object.entries(m)) {
         if (k.startsWith("ot") || k.startsWith("parsed_ot")) ot[k] = v;
       }
-      return {
+      const next = {
         ...state,
         loaded: true,
         targetC: (m.target_temperature ?? 0) / 10,
@@ -159,6 +159,9 @@ function reducer(state, action) {
         ot,
         dhwPrograms: m.dhw_programs || {},
       };
+      const resolvedC = computePresetTargetC(next, next.source);
+      if (resolvedC != null) next.targetC = resolvedC;
+      return next;
     }
     case "patch":
       return { ...state, ...action.patch };
