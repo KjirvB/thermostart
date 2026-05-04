@@ -291,8 +291,7 @@ body {
 }
 .dial-svg {
   width: 100%; height: 100%;
-  user-select: none; touch-action: pan-y;
-  cursor: grab;
+  user-select: none;
 }
 .dial-svg.dragging { cursor: grabbing; }
 

@@ -29,6 +29,18 @@ function arcPath(cx, cy, r, a0, a1) {
   const sweep = a1 > a0 ? 1 : 0;
   return `M ${x0} ${y0} A ${r} ${r} 0 ${large} ${sweep} ${x1} ${y1}`;
 }
+function annulusPath(cx, cy, rIn, rOut) {
+  return [
+    `M ${cx - rOut} ${cy}`,
+    `a ${rOut} ${rOut} 0 1 0 ${rOut * 2} 0`,
+    `a ${rOut} ${rOut} 0 1 0 ${-rOut * 2} 0`,
+    `Z`,
+    `M ${cx - rIn} ${cy}`,
+    `a ${rIn} ${rIn} 0 1 0 ${rIn * 2} 0`,
+    `a ${rIn} ${rIn} 0 1 0 ${-rIn * 2} 0`,
+    `Z`,
+  ].join(" ");
+}
 
 export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const SIZE = 480;
@@ -106,8 +118,7 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const [rx, ry] = polar(CX, CY, R_HANDLE, roomA);
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}
-         onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}>
       <defs>
         <linearGradient id="ringGrad" gradientUnits="userSpaceOnUse" x1={CX - R} y1={CY} x2={CX + R} y2={CY}>
           <stop offset="0%"   stopColor="var(--cool)" stopOpacity="0.5" />
@@ -118,34 +129,43 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
         </filter>
       </defs>
 
-      <path d={arcPath(CX, CY, R, ARC_START, ARC_START + ARC_SWEEP)}
-            fill="none" stroke="var(--bg-2)" strokeWidth="22" strokeLinecap="round" />
+      <g style={{ pointerEvents: "none" }}>
+        <path d={arcPath(CX, CY, R, ARC_START, ARC_START + ARC_SWEEP)}
+              fill="none" stroke="var(--bg-2)" strokeWidth="22" strokeLinecap="round" />
 
-      <path d={arcPath(CX, CY, R, ARC_START, targetA)}
-            fill="none" stroke="url(#ringGrad)" strokeWidth="22" strokeLinecap="round" />
+        <path d={arcPath(CX, CY, R, ARC_START, targetA)}
+              fill="none" stroke="url(#ringGrad)" strokeWidth="22" strokeLinecap="round" />
 
-      {ticks.map(t => (
-        <line key={t.c} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
-              stroke={t.big ? "var(--ink-2)" : "var(--ink-3)"}
-              strokeWidth={t.big ? 1.4 : 1} opacity={t.big ? 0.9 : 0.5} />
-      ))}
+        {ticks.map(t => (
+          <line key={t.c} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+                stroke={t.big ? "var(--ink-2)" : "var(--ink-3)"}
+                strokeWidth={t.big ? 1.4 : 1} opacity={t.big ? 0.9 : 0.5} />
+        ))}
 
-      {ticks.filter(t => t.big).map(t => {
-        const [lx, ly] = polar(CX, CY, R_TICK - 26, t.a);
-        return (
-          <text key={"l" + t.c} x={lx} y={ly} textAnchor="middle" dominantBaseline="central"
-                fontFamily="var(--font-mono)" fontSize="10" fill="var(--ink-3)" letterSpacing="0.5">
-            {t.c}
-          </text>
-        );
-      })}
+        {ticks.filter(t => t.big).map(t => {
+          const [lx, ly] = polar(CX, CY, R_TICK - 26, t.a);
+          return (
+            <text key={"l" + t.c} x={lx} y={ly} textAnchor="middle" dominantBaseline="central"
+                  fontFamily="var(--font-mono)" fontSize="10" fill="var(--ink-3)" letterSpacing="0.5">
+              {t.c}
+            </text>
+          );
+        })}
 
-      <circle cx={rx} cy={ry} r="4" fill="none" stroke="var(--ink-2)" strokeWidth="1.5" opacity="0.7" />
+        <circle cx={rx} cy={ry} r="4" fill="none" stroke="var(--ink-2)" strokeWidth="1.5" opacity="0.7" />
 
-      <g filter="url(#handleShadow)">
-        <circle cx={hx} cy={hy} r="16" fill="var(--bg-0)" stroke="var(--ember)" strokeWidth="2.5" />
-        <circle cx={hx} cy={hy} r="4" fill="var(--ember)" />
+        <g filter="url(#handleShadow)">
+          <circle cx={hx} cy={hy} r="16" fill="var(--bg-0)" stroke="var(--ember)" strokeWidth="2.5" />
+          <circle cx={hx} cy={hy} r="4" fill="var(--ember)" />
+        </g>
       </g>
+
+      {/* Hit ring — invisible doughnut between HIT_INNER and HIT_OUTER. Touches in the
+          center fall through to the page, so vertical scrolling works there. */}
+      <path d={annulusPath(CX, CY, HIT_INNER, HIT_OUTER)}
+            fill="black" fillOpacity="0" fillRule="evenodd"
+            style={{ pointerEvents: "fill", touchAction: "none", cursor: "grab" }}
+            onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
     </svg>
   );
 }
