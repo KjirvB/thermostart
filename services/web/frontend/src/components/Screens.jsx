@@ -12,30 +12,47 @@ import { downloadFirmware, fetchHistory } from "../api.js";
 
 function buildXTicks(range, startTs, bucketSeconds, pointCount, locale) {
   const totalSeconds = bucketSeconds * pointCount;
+  const endTs = startTs + totalSeconds;
   const fracFor = (ts) => (ts - startTs) / totalSeconds;
+  const loc = locale || "en-GB";
+  const startDate = new Date(startTs * 1000);
+  const ticks = [];
+
   if (range === "24h") {
-    return [0, 6, 12, 18, 24].map((hh) => ({ frac: hh / 24, label: String(hh).padStart(2, "0") }));
-  }
-  if (range === "7d") {
-    const fmt = new Intl.DateTimeFormat(locale || "en-GB", { weekday: "short" });
-    const ticks = [];
-    const startDay = Math.ceil(startTs / 86400) * 86400;
-    for (let t = startDay; t <= startTs + totalSeconds; t += 86400) {
-      const frac = fracFor(t);
-      if (frac < 0 || frac > 1) continue;
-      ticks.push({ frac, label: fmt.format(new Date(t * 1000)) });
+    // Step by 6h in local time, anchored to the next 6h-aligned local hour.
+    const startHourFractional = startDate.getHours() + startDate.getMinutes() / 60 + startDate.getSeconds() / 3600;
+    const alignedHour = Math.ceil(startHourFractional / 6) * 6;
+    const d = new Date(startDate);
+    d.setHours(alignedHour, 0, 0, 0);
+    while (d.getTime() / 1000 <= endTs) {
+      const frac = fracFor(d.getTime() / 1000);
+      if (frac >= 0 && frac <= 1) ticks.push({ frac, label: String(d.getHours()).padStart(2, "0") });
+      d.setHours(d.getHours() + 6);
     }
     return ticks;
   }
-  // 30d
-  const fmt = new Intl.DateTimeFormat(locale || "en-GB", { day: "numeric", month: "short" });
-  const ticks = [];
-  const weekSec = 7 * 86400;
-  const firstWeek = Math.ceil(startTs / weekSec) * weekSec;
-  for (let t = firstWeek; t <= startTs + totalSeconds; t += weekSec) {
-    const frac = fracFor(t);
-    if (frac < 0 || frac > 1) continue;
-    ticks.push({ frac, label: fmt.format(new Date(t * 1000)) });
+
+  if (range === "7d") {
+    const fmt = new Intl.DateTimeFormat(loc, { weekday: "short" });
+    // Step by 1 day in local time, starting at the first local-midnight at or after start.
+    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    if (d.getTime() / 1000 < startTs) d.setDate(d.getDate() + 1);
+    while (d.getTime() / 1000 <= endTs) {
+      const frac = fracFor(d.getTime() / 1000);
+      if (frac >= 0 && frac <= 1) ticks.push({ frac, label: fmt.format(d) });
+      d.setDate(d.getDate() + 1);
+    }
+    return ticks;
+  }
+
+  // 30d: step by 7 days in local time, starting at the first local-midnight at or after start.
+  const fmt = new Intl.DateTimeFormat(loc, { day: "numeric", month: "short" });
+  const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  if (d.getTime() / 1000 < startTs) d.setDate(d.getDate() + 1);
+  while (d.getTime() / 1000 <= endTs) {
+    const frac = fracFor(d.getTime() / 1000);
+    if (frac >= 0 && frac <= 1) ticks.push({ frac, label: fmt.format(d) });
+    d.setDate(d.getDate() + 7);
   }
   return ticks;
 }
