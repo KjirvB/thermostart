@@ -217,6 +217,9 @@ const initialState = {
   // OpenTherm raw fields (whatever /thermostatmodel returns)
   ot: {},
   dhwPrograms: {},
+  // Bumped on every socket reconnect so components owning their own server-fetched data
+  // (e.g. history graph) can include this in useEffect deps to refresh after a gap.
+  reconnectEpoch: 0,
 };
 
 function reducer(state, action) {
@@ -259,6 +262,8 @@ function reducer(state, action) {
     }
     case "patch":
       return { ...state, ...action.patch };
+    case "bumpReconnect":
+      return { ...state, reconnectEpoch: state.reconnectEpoch + 1 };
     case "setWeek":
       return { ...state, week: action.week };
     case "addException":
@@ -296,7 +301,20 @@ export function useStore() {
 
   // Live updates from Socket.IO
   useEffect(() => {
+    let wasDisconnected = false;
     const off = onSocketEvents({
+      connect: () => {
+        if (wasDisconnected) {
+          wasDisconnected = false;
+          fetchModel()
+            .then((m) => dispatch({ type: "hydrate", model: m }))
+            .catch((err) => console.error("model refetch on reconnect failed", err));
+          dispatch({ type: "bumpReconnect" });
+        }
+      },
+      disconnect: () => {
+        wasDisconnected = true;
+      },
       room_temperature: (d) => dispatch({ type: "patch", patch: { roomC: (d.room_temperature ?? 0) / 10 } }),
       outside_temperature: (d) => dispatch({ type: "patch", patch: { outsideC: (d.outside_temperature ?? 0) / 10 } }),
       target_temperature: (d) => dispatch({ type: "patch", patch: { targetC: (d.target_temperature ?? 0) / 10 } }),
