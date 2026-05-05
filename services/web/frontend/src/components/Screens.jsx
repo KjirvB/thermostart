@@ -368,7 +368,7 @@ export function Overview({ state, actions, t, onGoSchedule, onGoExceptions }) {
       .then((d) => { if (!cancelled) { setHistory(d); setHistoryLoading(false); } })
       .catch(() => { if (!cancelled) { setHistory(null); setHistoryError(true); setHistoryLoading(false); } });
     return () => { cancelled = true; };
-  }, [range]);
+  }, [range, state.reconnectEpoch]);
 
   const historyEmpty = history && history.target.every((v) => v == null) && history.room.every((v) => v == null);
 
