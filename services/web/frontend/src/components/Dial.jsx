@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TAU = Math.PI * 2;
 const MIN_C = 10;
@@ -29,6 +29,18 @@ function arcPath(cx, cy, r, a0, a1) {
   const sweep = a1 > a0 ? 1 : 0;
   return `M ${x0} ${y0} A ${r} ${r} 0 ${large} ${sweep} ${x1} ${y1}`;
 }
+function annulusPath(cx, cy, rIn, rOut) {
+  return [
+    `M ${cx - rOut} ${cy}`,
+    `a ${rOut} ${rOut} 0 1 0 ${rOut * 2} 0`,
+    `a ${rOut} ${rOut} 0 1 0 ${-rOut * 2} 0`,
+    `Z`,
+    `M ${cx - rIn} ${cy}`,
+    `a ${rIn} ${rIn} 0 1 0 ${rIn * 2} 0`,
+    `a ${rIn} ${rIn} 0 1 0 ${-rIn * 2} 0`,
+    `Z`,
+  ].join(" ");
+}
 
 export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const SIZE = 480;
@@ -41,6 +53,7 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const HANDLE_GRAB_R = 36;
 
   const svgRef = useRef(null);
+  const ringRef = useRef(null);
   const dragRef = useRef(false);
   const [drag, setDrag] = useState(false);
 
@@ -78,6 +91,22 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
     return false;
   }
 
+  // Chrome and Edge ignore touch-action set on SVG child elements, so the
+  // inline touchAction: "none" on the ring path is a no-op there — Chromium
+  // falls back to the SVG root's auto, treats vertical drags as scrolls and
+  // fires pointercancel. React's onTouchStart is passive so preventDefault
+  // does nothing; attach a non-passive native listener instead. The ring
+  // path uses pointer-events: fill with evenodd, so this only fires when the
+  // touch starts on the ring — center touches still fall through to the page
+  // and scroll natively.
+  useEffect(() => {
+    const ring = ringRef.current;
+    if (!ring) return;
+    const onTouchStart = (e) => { e.preventDefault(); };
+    ring.addEventListener("touchstart", onTouchStart, { passive: false });
+    return () => ring.removeEventListener("touchstart", onTouchStart);
+  }, []);
+
   function startDrag(e) {
     if (!svgRef.current) return;
     const [px, py] = svgCoords(e);
@@ -109,8 +138,7 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const [rx, ry] = polar(CX, CY, R_HANDLE, roomA);
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}
-         onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
+    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}>
       <defs>
         <linearGradient id="ringGrad" gradientUnits="userSpaceOnUse" x1={CX - R} y1={CY} x2={CX + R} y2={CY}>
           <stop offset="0%"   stopColor="var(--cool)" stopOpacity="0.5" />
@@ -152,6 +180,13 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
         </g>
       </g>
 
+      {/* Hit ring — invisible doughnut between HIT_INNER and HIT_OUTER. Touches in the
+          center fall through to the page, so vertical scrolling works there. */}
+      <path ref={ringRef}
+            d={annulusPath(CX, CY, HIT_INNER, HIT_OUTER)}
+            fill="black" fillOpacity="0" fillRule="evenodd"
+            style={{ pointerEvents: "fill", touchAction: "none", cursor: "grab" }}
+            onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
     </svg>
   );
 }
