@@ -29,18 +29,6 @@ function arcPath(cx, cy, r, a0, a1) {
   const sweep = a1 > a0 ? 1 : 0;
   return `M ${x0} ${y0} A ${r} ${r} 0 ${large} ${sweep} ${x1} ${y1}`;
 }
-function annulusPath(cx, cy, rIn, rOut) {
-  return [
-    `M ${cx - rOut} ${cy}`,
-    `a ${rOut} ${rOut} 0 1 0 ${rOut * 2} 0`,
-    `a ${rOut} ${rOut} 0 1 0 ${-rOut * 2} 0`,
-    `Z`,
-    `M ${cx - rIn} ${cy}`,
-    `a ${rIn} ${rIn} 0 1 0 ${rIn * 2} 0`,
-    `a ${rIn} ${rIn} 0 1 0 ${-rIn * 2} 0`,
-    `Z`,
-  ].join(" ");
-}
 
 export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const SIZE = 480;
@@ -53,6 +41,7 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const HANDLE_GRAB_R = 36;
 
   const svgRef = useRef(null);
+  const dragRef = useRef(false);
   const [drag, setDrag] = useState(false);
 
   const targetA = tempToAngle(targetC);
@@ -93,23 +82,25 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
     if (!svgRef.current) return;
     const [px, py] = svgCoords(e);
     if (!isOnRing(px, py)) return;
+    dragRef.current = true;
     setDrag(true);
     if (onDragStart) onDragStart();
     e.currentTarget.setPointerCapture(e.pointerId);
     applyAngle(px, py);
   }
   function moveDrag(e) {
-    if (!drag) return;
+    if (!dragRef.current) return;
     const [px, py] = svgCoords(e);
     applyAngle(px, py);
   }
   function endDrag(e) {
-    if (drag && onCommit) {
+    if (dragRef.current && onCommit) {
       const [px, py] = svgCoords(e);
       const a = Math.atan2(py - CY, px - CX);
       const c = angleToTemp(a);
       onCommit(Math.min(MAX_C, Math.max(MIN_C, Math.round(c * 2) / 2)));
     }
+    dragRef.current = false;
     setDrag(false);
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
   }
@@ -118,7 +109,8 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
   const [rx, ry] = polar(CX, CY, R_HANDLE, roomA);
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}>
+    <svg ref={svgRef} viewBox={`0 0 ${SIZE} ${SIZE}`} className={"dial-svg" + (drag ? " dragging" : "")}
+         onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
       <defs>
         <linearGradient id="ringGrad" gradientUnits="userSpaceOnUse" x1={CX - R} y1={CY} x2={CX + R} y2={CY}>
           <stop offset="0%"   stopColor="var(--cool)" stopOpacity="0.5" />
@@ -160,12 +152,6 @@ export function Dial({ targetC, roomC, onChange, onCommit, onDragStart }) {
         </g>
       </g>
 
-      {/* Hit ring — invisible doughnut between HIT_INNER and HIT_OUTER. Touches in the
-          center fall through to the page, so vertical scrolling works there. */}
-      <path d={annulusPath(CX, CY, HIT_INNER, HIT_OUTER)}
-            fill="black" fillOpacity="0" fillRule="evenodd"
-            style={{ pointerEvents: "fill", touchAction: "none", cursor: "grab" }}
-            onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
     </svg>
   );
 }
